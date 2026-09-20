@@ -1,0 +1,26 @@
+{
+  "name": "pi-agentlet",
+  "version": "0.1.0",
+  "description": "Minimalist subagents for pi: independent sessions, bounded parallelism, and final answers only. No personas, workflows, or background jobs.",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "files": ["index.ts", "src", "docs", "README.md", "AGENTS.md"],
+  "pi": { "extensions": ["./index.ts"] },
+  "engines": { "node": ">=24" },
+  "os": ["linux"],
+  "scripts": {
+    "test": "node --test tests/*.test.ts",
+    "typecheck": "node scripts/typecheck.mjs",
+    "check": "npm test && npm run typecheck"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "~5.9.3"
+  }
+}
