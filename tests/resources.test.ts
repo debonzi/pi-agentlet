@@ -4,7 +4,9 @@ import { mkdtemp, mkdir, writeFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Args, BuildSystemPromptOptions, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { buildInvocation, digest, executable, expectation, mismatch, TESTED_VERSION } from "../src/resources.ts";
+import { buildInvocation, digest, executable, expectation, mismatch, supportsPiVersion } from "../src/resources.ts";
+
+const SUPPORTED_VERSION = "0.87.0";
 
 function host() {
   const pi = {
@@ -25,7 +27,7 @@ function parsed(overrides: Partial<Args> = {}): Args {
 
 test("CLI reconstruction preserves effective model/thinking/trust, cwd, resources, exclusions and environment", () => {
   const { pi, ctx, options } = host();
-  const expected = expectation(pi, ctx, options, TESTED_VERSION);
+  const expected = expectation(pi, ctx, options, SUPPORTED_VERSION);
   const invocation = buildInvocation({
     parsed: parsed({
       extensions: ["extra.ts", "npm:existing-package"], skills: ["./skill"], noSkills: true,
@@ -54,7 +56,7 @@ test("CLI reconstruction preserves effective model/thinking/trust, cwd, resource
 });
 test("verification detects non-reproducible configuration without any fallback", () => {
   const { pi, ctx, options } = host();
-  const expected = expectation(pi, ctx, options, TESTED_VERSION);
+  const expected = expectation(pi, ctx, options, SUPPORTED_VERSION);
   assert.equal(mismatch(expected, pi, ctx, options), undefined);
   assert.match(mismatch({ ...expected, model: "other" }, pi, ctx, options)!, /model/);
   assert.match(mismatch({ ...expected, thinking: "off" }, pi, ctx, options)!, /thinking/);
@@ -62,10 +64,18 @@ test("verification detects non-reproducible configuration without any fallback",
   assert.match(mismatch({ ...expected, trusted: false }, pi, ctx, options)!, /trust/);
   assert.match(mismatch({ ...expected, toolsHash: "changed" }, pi, ctx, options)!, /tools/);
   assert.match(mismatch({ ...expected, resourcesHash: "changed" }, pi, ctx, options)!, /skills/);
-  assert.throws(() => expectation(pi, ctx, options, "0.1.0"), /requires pi/);
-  assert.throws(() => expectation(pi, { ...ctx, model: undefined }, options, TESTED_VERSION), /model/);
-  assert.throws(() => expectation(pi, ctx, { ...options, forceSystemPrompt: "private parent state" }, TESTED_VERSION), /in-memory/);
+  assert.throws(() => expectation(pi, ctx, options, "0.1.0"), /supports pi >=0\.86\.0 <0\.88\.0/);
+  assert.throws(() => expectation(pi, { ...ctx, model: undefined }, options, SUPPORTED_VERSION), /model/);
+  assert.throws(() => expectation(pi, ctx, { ...options, forceSystemPrompt: "private parent state" }, SUPPORTED_VERSION), /in-memory/);
   assert.throws(() => buildInvocation({ parsed: parsed({ apiKey: "secret" }), expected, agentDir: "/config", startupCwd: "/launch", exec: { command: "/pi", prefix: [] } }), /--api-key/);
+});
+test("pi compatibility accepts stable releases in the supported range only", () => {
+  for (const version of ["0.86.0", "0.86.2", "0.87.0", "0.87.999", "0.87.0+build.1"]) {
+    assert.equal(supportsPiVersion(version), true, version);
+  }
+  for (const version of ["0.85.999", "0.88.0", "1.0.0", "0.87.0-beta.1", "0.087.0", "invalid"]) {
+    assert.equal(supportsPiVersion(version), false, version);
+  }
 });
 test("stable configuration hashes do not depend on object property order", () => {
   assert.equal(digest({ b: 2, a: 1 }), digest({ a: 1, b: 2 }));

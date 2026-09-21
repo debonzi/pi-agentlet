@@ -5,7 +5,7 @@ import type { Details, Task, TaskResult } from "./types.ts";
 import { oneLine, safeText } from "./text.ts";
 import { LIMITS } from "./limits.ts";
 
-// Match pi 0.86.1's Working Loader without requiring its private TUI instance.
+// Match the supported pi range's Working Loader without requiring its private TUI instance.
 const workingFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 export class RunningAnimation {
   private timer?: NodeJS.Timeout;

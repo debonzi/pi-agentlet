@@ -71,7 +71,7 @@ Progress uses the host's ordinary tool block, metadata updates, and normal expan
 
 Use strict, erasable TypeScript and Node built-ins. Publish a pi package with an explicit root extension entry point and `*` host peer dependencies; do not bundle another pi runtime or add queue/process/UI libraries unnecessarily. The package includes the maintained `docs` directory so documentation links remain useful outside a checkout.
 
-Compatibility is deliberately pinned to the reviewed host version. Before integration changes, read the installed host's relevant documentation in full and inspect public types/examples. The official subagent example is integration evidence, not a product template: its personas/chains and resource tradeoffs are not automatically adopted here.
+Compatibility is deliberately bounded to the supported host range. Before integration changes, read the relevant host documentation in full and inspect public types/examples across that range. The official subagent example is integration evidence, not a product template: its personas/chains and resource tradeoffs are not automatically adopted here.
 
 ## Verification and maintenance
 

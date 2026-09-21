@@ -45,7 +45,7 @@ PI_AGENTLET_CLI=/absolute/path/to/pi-coding-agent/dist/bundle/cli.js \
   node scripts/smoke.mjs
 ```
 
-The shipped `dist/cli.js` entry point is also supported. The smoke exercises a parent delegation to three children, independent contexts, retained child tool availability, resource verification, and valid JSON stdout. It was tested with pi 0.86.1 and Node 24.16.0 on Linux. It does not validate interactive behavior or a paid provider. See [compatibility evidence](compatibility.md#validation).
+The shipped `dist/cli.js` entry point is also supported. When run with a host in the supported pi range on Node 24+ and Linux, the smoke exercises a parent delegation to three children, independent contexts, retained child tool availability, resource verification, and valid JSON stdout. It does not validate interactive behavior or a paid provider. See [compatibility evidence](compatibility.md#validation).
 
 ## Manual interactive smoke
 
@@ -62,4 +62,4 @@ Run only with authorization to use the configured provider and resources:
 
 Keep the README focused on prospective users: purpose, differentiators, installation, examples, and practical limitations. Keep internal contracts in the functional specification, design rationale in the architecture document, and version-specific API evidence in compatibility notes.
 
-When changing defaults in `src/limits.ts`, update affected tool descriptions, tests, and user-facing documentation. Before changing host integration, read the installed pi version's relevant documentation in full and inspect its public types/examples; compatibility is deliberately pinned to the reviewed version.
+When changing defaults in `src/limits.ts`, update affected tool descriptions, tests, and user-facing documentation. Before changing host integration, read the relevant documentation in full and inspect public types/examples for the supported pi range; compatibility is deliberately bounded and must not be expanded without review.

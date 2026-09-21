@@ -6,7 +6,28 @@ import type { Args, BuildSystemPromptOptions, ExtensionAPI, ExtensionContext } f
 import type { Expectation, Invocation } from "./types.ts";
 
 export const GUARD_PATH = fileURLToPath(new URL("./verify-child.ts", import.meta.url));
-export const TESTED_VERSION = "0.86.1";
+export const SUPPORTED_PI_RANGE = ">=0.86.0 <0.88.0";
+const MIN_SUPPORTED_PI_VERSION = [0, 86, 0] as const;
+const MAX_SUPPORTED_PI_VERSION = [0, 88, 0] as const;
+
+type VersionTuple = readonly [number, number, number];
+
+function compareVersions(left: VersionTuple, right: VersionTuple): number {
+  for (let index = 0; index < left.length; index++) {
+    if (left[index]! < right[index]!) return -1;
+    if (left[index]! > right[index]!) return 1;
+  }
+  return 0;
+}
+
+export function supportsPiVersion(version: string): boolean {
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(version);
+  if (!match) return false;
+  const parsed: VersionTuple = [Number(match[1]), Number(match[2]), Number(match[3])];
+  if (!parsed.every(Number.isSafeInteger)) return false;
+  return compareVersions(parsed, MIN_SUPPORTED_PI_VERSION) >= 0
+    && compareVersions(parsed, MAX_SUPPORTED_PI_VERSION) < 0;
+}
 
 export function digest(value: unknown): string {
   const canonical = (v: unknown): unknown => typeof v === "function" ? v.toString() : Array.isArray(v) ? v.map(canonical)
@@ -40,7 +61,7 @@ export function toolHash(pi: Pick<ExtensionAPI, "getAllTools" | "getActiveTools"
 }
 
 export function expectation(pi: ExtensionAPI, ctx: ExtensionContext, options: BuildSystemPromptOptions, version: string): Expectation {
-  if (version !== TESTED_VERSION) throw new Error(`subagents requires pi ${TESTED_VERSION}; installed version is ${version}. Review resource/lifecycle APIs before updating compatibility.`);
+  if (!supportsPiVersion(version)) throw new Error(`subagents supports pi ${SUPPORTED_PI_RANGE}; installed version is ${version}. Review resource/lifecycle APIs before expanding compatibility.`);
   if (!ctx.model) throw new Error("subagents requires an explicitly resolved parent model.");
   if (options.forceSystemPrompt) throw new Error("subagents cannot reconstruct an in-memory forced system prompt. Put reusable instructions in normal resources.");
   if (!pi.getActiveTools().includes("subagents")) throw new Error("subagents must remain available in the child tool selection.");
