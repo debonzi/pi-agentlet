@@ -5,16 +5,21 @@ import { LIMITS } from "./limits.ts";
 import { Manager, validateInput } from "./manager.ts";
 import { GUIDELINES } from "./prompt.ts";
 import { buildInvocation, executable, expectation } from "./resources.ts";
-import { callView, resultView } from "./ui.ts";
+import { callView, resultView, RunningAnimation } from "./ui.ts";
 import type { Details } from "./types.ts";
 
 export default function subagents(pi: ExtensionAPI): void {
   const startupCwd = process.cwd();
   let manager = new Manager();
+  const animations = new Map<string, RunningAnimation>();
+  const stopAnimations = () => {
+    for (const animation of animations.values()) animation.stop();
+    animations.clear();
+  };
   let promptOptions: BuildSystemPromptOptions | undefined;
   pi.on("before_agent_start", event => { promptOptions = event.systemPromptOptions; });
-  pi.on("session_shutdown", async () => { await manager.shutdown(); promptOptions = undefined; });
-  pi.on("session_start", () => { manager = new Manager(); promptOptions = undefined; });
+  pi.on("session_shutdown", async () => { stopAnimations(); await manager.shutdown(); promptOptions = undefined; });
+  pi.on("session_start", () => { stopAnimations(); manager = new Manager(); promptOptions = undefined; });
 
   pi.registerTool({
     name: "subagents",
@@ -29,7 +34,7 @@ export default function subagents(pi: ExtensionAPI): void {
         output: Type.String({ minLength: 1, description: "Required final answer format and content" }),
       }, { additionalProperties: false }), { minItems: 1, maxItems: LIMITS.tasks }),
     }, { additionalProperties: false }),
-    async execute(_id, input, signal, onUpdate, ctx) {
+    async execute(id, input, signal, onUpdate, ctx) {
       validateInput(input);
       if (!promptOptions) throw new Error("subagents cannot verify the parent resource configuration before before_agent_start.");
       const expected = expectation(pi, ctx, promptOptions, VERSION);
@@ -37,12 +42,21 @@ export default function subagents(pi: ExtensionAPI): void {
         parsed: parseArgs(process.argv.slice(2)), expected, agentDir: getAgentDir(), startupCwd,
         exec: executable(process.execPath, process.argv[1]), env: process.env,
       });
-      return manager.execute(input, invocation, signal, onUpdate);
+      const animation = ctx.mode === "tui" ? new RunningAnimation(signal) : undefined;
+      if (animation) animations.set(id, animation);
+      try { return await manager.execute(input, invocation, signal, onUpdate); }
+      finally {
+        animation?.stop();
+        if (animations.get(id) === animation) animations.delete(id);
+      }
     },
     renderCall(args, theme) { return callView(args.tasks, theme); },
-    renderResult(result, { expanded }, theme, context) {
+    renderResult(result, { expanded, isPartial }, theme, context) {
       const fallback = result.content.filter(c => c.type === "text").map(c => c.text).join("\n");
-      return resultView(result.details as Details | undefined, fallback, expanded, theme, context.args.tasks);
+      const details = result.details as Details | undefined;
+      const runningIcon = animations.get(context.toolCallId)?.frame(
+        isPartial && !!details?.tasks?.some(task => task.state === "running"), context.invalidate);
+      return resultView(details, fallback, expanded, theme, context.args.tasks, runningIcon);
     },
   });
 }

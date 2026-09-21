@@ -6,6 +6,7 @@ export const LIMITS = Object.freeze({
   timeoutMs: 10 * 60 * 1000,
   graceMs: 1500,
   updateMs: 250,
+  animationMs: 80,
   answerBytes: 8 * 1024,
   recordBytes: 16 * 1024 * 1024,
   diagnosticChars: 400,

@@ -51,6 +51,7 @@ Runtime limits are centralized in [`src/limits.ts`](../src/limits.ts). The curre
 | Model-visible final answer per task, including truncation notice | 8 KiB |
 | Maximum JSONL event record | 16 MiB |
 | Progress refresh interval | 250 ms |
+| TUI running-task animation interval | 80 ms |
 | Graceful termination before forced kill | 1.5 seconds |
 | Diagnostic text | 400 characters |
 | Recent activity text | 160 characters |
@@ -91,7 +92,7 @@ A call's abort signal cancels its queued tasks and active children. A pre-cancel
 
 Shutdown must cancel and await cleanup; lifecycle integration covers quit, reload, session changes, and forks on the reviewed host. Cancellation, timeout, spawn errors, process errors, and close races must settle exactly once. Terminate descendants, escalate when needed, await actual process close, and remove timers, listeners, pipes, and temporary verification resources. `proc.killed` is not proof of exit. No progress may publish after cancellation or teardown, and broken UI observers must not abandon work or cleanup.
 
-Use the ordinary tool block with compact `details` updates and empty progress `content`. Display task title/ID, real state, elapsed time, short observable tool/file activity, and reported usage where appropriate. Normal expansion exposes task instructions, final answers, and useful metadata. Sanitize terminal controls, respect narrow widths and theme colors, and do not show thinking, raw arguments/output, invented percentages, or permanent management UI. Headless execution returns the same final results without TUI-only calls or corrupting JSON stdout.
+Use the ordinary tool block with compact `details` updates and empty progress `content`. Display task title/ID, real state, elapsed time, short observable tool/file activity, and reported usage where appropriate. Running tasks show the reviewed pi version's default “Working” spinner at 80 ms intervals, in both compact and expanded views; other states retain static icons. Animation redraws are TUI-only and independent of metadata updates, with no extra progress events or model-visible content. Stop animation on completion, error, cancellation, or session teardown; restored results never start animation. Normal expansion exposes task instructions, final answers, and useful metadata. Sanitize terminal controls, respect narrow widths and theme colors, and do not show thinking, raw arguments/output, invented percentages, or permanent management UI. Headless execution returns the same final results without TUI-only calls or corrupting JSON stdout.
 
 ## Shared filesystem and acceptance
 
@@ -103,6 +104,6 @@ Acceptance requires automated coverage of:
 2. Fresh prompts, parent/child guidance, retained child tool availability, and applicable resource/model/thinking/trust/tool-restriction reconstruction with explicit incompatibility failures.
 3. Final-only extraction, usage deduplication, UTF-8 framing/truncation, malformed or oversized output, provider/spawn/exit/signal failures, and partial answers that must not count as success.
 4. Pre-start, queued, and running cancellation; queue-independent timeout; forced descendant cleanup; lifecycle/race idempotence; and no late progress.
-5. Private recoverable artifacts, artifact failures, compact metadata-only updates, narrow/expanded UI, and headless execution without extra stdout.
+5. Private recoverable artifacts, artifact failures, compact metadata-only updates, narrow/expanded UI, running-task animation and timer/listener cleanup across concurrent calls and teardown, and headless execution without extra stdout.
 
 Run the network-, credential-, and global-installation-independent fixture suite and type checks using the [development guide](development.md#automated-checks). Real-host offline smoke is opt-in; paid-provider and interactive checks require explicit authorization. Documentation and tests must describe implemented behavior, not planned features.

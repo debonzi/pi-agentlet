@@ -16,7 +16,7 @@ This is the maintained design reference for pi-agentlet. The [functional specifi
 | `src/verify-child.ts` | Checks effective child configuration before work and detects supported configuration mismatches. |
 | `src/results.ts` | Final-only result formatting, UTF-8 answer caps, and private full-answer artifacts. |
 | `src/usage.ts` | Reported usage aggregation helpers. |
-| `src/ui.ts` | Ordinary tool-block rendering, compact and expanded. |
+| `src/ui.ts` | Ordinary tool-block rendering, compact and expanded, and disposable running-task animation. |
 | `src/prompt.ts` | Parent delegation guidelines and automatic child instructions. |
 | `src/text.ts`, `src/types.ts` | Bounded/sanitized text helpers and internal contracts. |
 | `src/limits.ts` | Centralized internal limits. |
@@ -65,7 +65,7 @@ Linux process groups plus `/proc` descendant tracking cover ordinary tool descen
 
 No snapshots, automatic commits, worktrees, or global write queues are created. Parallel edits require disjoint scopes, and analysis references must be revalidated because sibling tools and external processes can still change files. Blocking one call does not serialize all tools or processes.
 
-Progress uses the host's ordinary tool block, metadata updates, and normal expansion. Do not replace the editor/footer, install persistent widgets, add a `/subs` management command, or create a separate control panel. Headless behavior is part of the same contract, not a separate mode with weaker guarantees.
+Progress uses the host's ordinary tool block, metadata updates, and normal expansion. Each live TUI call owns a disposable animation clock, started only when a partial result contains running tasks. It redraws the row through `ToolRenderContext.invalidate()` without publishing progress or changing result data. The clock matches pi's default Working frames/cadence; the native Loader requires a TUI instance that tool renderers do not receive. Execution owns abort/finally cleanup, and session teardown stops all clocks before awaiting child cleanup. Renderers cannot start clocks for historical or headless calls. Do not replace the editor/footer, install persistent widgets, add a `/subs` management command, or create a separate control panel. Headless behavior is part of the same contract, not a separate mode with weaker guarantees.
 
 ### Minimal dependencies and explicit compatibility
 
