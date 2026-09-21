@@ -115,7 +115,8 @@ export function runChild(invocation: Invocation, task: Task, signal: AbortSignal
       finish();
     });
     signal.addEventListener("abort", cancel, { once: true });
-    timeout = setTimeout(() => stop("timed_out", "Child execution exceeded its time limit."), limits.timeoutMs);
+    timeout = setTimeout(() => stop("timed_out", "Child execution exceeded its time limit."),
+      task.timeoutSeconds === undefined ? limits.timeoutMs : task.timeoutSeconds * 1000);
     if (signal.aborted) cancel();
     config.end(JSON.stringify(invocation.expectation ?? {}));
     proc.stdin!.end(childPrompt(task));

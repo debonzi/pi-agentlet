@@ -40,6 +40,29 @@ test("all invalid arguments are rejected before any child starts", async () => {
   assert.equal(starts, 0);
   assert.equal(validateInput(tasks("😀".repeat(120))).length, 1);
 });
+test("invalid task timeouts reject the entire call before startup", async () => {
+  let starts = 0;
+  const manager = new Manager({ runner: async () => { starts++; return success; } });
+  for (const timeoutSeconds of [0, -1, 1.5, NaN, Infinity, -Infinity, "1200", true, null, {}, [], LIMITS.maxTimeoutSeconds + 1]) {
+    await assert.rejects(manager.execute({ tasks: [task, { ...task, timeoutSeconds }] }, fixture()), /timeoutSeconds/);
+  }
+  assert.equal(starts, 0);
+  assert.equal(LIMITS.timeoutMs, 20 * 60 * 1000);
+  assert.ok(LIMITS.maxTimeoutSeconds * 1000 <= 2_147_483_647);
+  assert.ok((LIMITS.maxTimeoutSeconds + 1) * 1000 > 2_147_483_647);
+});
+test("per-task timeout overrides survive validation and remain isolated across calls and the queue", async () => {
+  const received: (number | undefined)[] = [];
+  const manager = new Manager({ concurrency: 1, runner: async (_invocation, task) => {
+    received.push(task.timeoutSeconds);
+    return success;
+  } });
+  await Promise.all([
+    manager.execute({ tasks: [task, ...[1, 1800, LIMITS.maxTimeoutSeconds].map(timeoutSeconds => ({ ...task, timeoutSeconds }))] }, fixture()),
+    manager.execute({ tasks: [task] }, fixture()),
+  ]);
+  assert.deepEqual(received, [undefined, 1, 1800, LIMITS.maxTimeoutSeconds, undefined]);
+});
 test("one task completes normally", async () => {
   const manager = new Manager({ runner: async () => success });
   const result = await manager.execute(tasks("one"), fixture());
@@ -112,9 +135,13 @@ test("shutdown/reload cleanup is idempotent and stops progress immediately", asy
 test("individual timeout/failure preserves siblings and includes failed reported usage", async () => {
   const manager = new Manager({ runner: (invocation, task, signal, activity) => runChild(
     { ...invocation, args: [...fixture(task.title).args] }, task, signal, activity,
-    { timeoutMs: 300, graceMs: 30, recordBytes: 1024 * 1024 },
+    { timeoutMs: 5000, graceMs: 30, recordBytes: 1024 * 1024 },
   ) });
-  const result = await manager.execute(tasks("ignore", "provider-error", "success"), fixture());
+  const result = await manager.execute({ tasks: [
+    { ...task, title: "ignore", timeoutSeconds: 1 },
+    { ...task, title: "provider-error" },
+    { ...task, title: "success", timeoutSeconds: 2 },
+  ] }, fixture());
   assert.deepEqual(result.details.tasks.map(t => t.state), ["timed_out", "failed", "completed"]);
   assert.equal(result.usage?.totalTokens, 24);
   assert.match(result.content[0]!.text, /Final café/);
@@ -141,10 +168,13 @@ test("8 KiB UTF-8 cap includes visible notice; private artifact preserves only c
 });
 test("queue time does not consume the next child's execution timeout", async () => {
   const manager = new Manager({ concurrency: 1, runner: (_invocation, task, signal, activity) => runChild(
-    fixture("success", task.title === "first" ? 250 : 0), task, signal, activity,
-    { timeoutMs: task.title === "first" ? 2000 : 200, graceMs: 30, recordBytes: 1024 * 1024 },
+    fixture("success", task.title === "first" ? 1200 : 0), task, signal, activity,
+    { timeoutMs: 3000, graceMs: 30, recordBytes: 1024 * 1024 },
   ) });
-  const result = await manager.execute(tasks("first", "second"), fixture());
+  const result = await manager.execute({ tasks: [
+    { ...task, title: "first", timeoutSeconds: 3 },
+    { ...task, title: "second", timeoutSeconds: 1 },
+  ] }, fixture());
   assert.ok(result.details.tasks.every(t => t.state === "completed"));
   assert.ok(result.details.tasks[1]!.startedAt! >= result.details.tasks[0]!.endedAt!);
 });

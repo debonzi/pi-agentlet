@@ -4,6 +4,8 @@ export const parseArgs = () => ({ messages: [], fileArgs: [], diagnostics: [], u
 export const Type = {
   Object: (properties, options) => ({ type: "object", properties, ...options }),
   String: options => ({ type: "string", ...options }),
+  Integer: options => ({ type: "integer", ...options }),
+  Optional: schema => ({ ...schema, optional: true }),
   Array: (items, options) => ({ type: "array", items, ...options }),
 };
 const widthOf = char => /[\u3000-\u9fff]|\p{Extended_Pictographic}/u.test(char) ? 2 : 1;

@@ -8,6 +8,7 @@ import { join } from "node:path";
 import type { ExtensionAPI, Theme, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { Details, TaskState } from "../src/types.ts";
 import { task } from "./helpers.ts";
+import { LIMITS } from "../src/limits.ts";
 
 const mocked = new URL("./fixtures/host.mjs", import.meta.url).href;
 registerHooks({ resolve(specifier, context, next) {
@@ -37,6 +38,19 @@ test("pi-agentlet package includes minimalist branding, the root entry point, an
   }
   const { default: implementation } = await import("../src/index.ts");
   assert.equal(extension, implementation);
+});
+
+test("tool schema and parent guidance expose optional per-task timeoutSeconds", () => {
+  let tool: ToolDefinition<any, Details> | undefined;
+  extension({ on() {}, registerTool(definition: ToolDefinition<any, Details>) { tool = definition; } } as unknown as ExtensionAPI);
+  const timeout = tool!.parameters.properties.tasks.items.properties.timeoutSeconds;
+  assert.equal(timeout.type, "integer");
+  assert.equal(timeout.optional, true);
+  assert.equal(timeout.minimum, 1);
+  assert.equal(timeout.maximum, LIMITS.maxTimeoutSeconds);
+  assert.match(timeout.description, /1200 \(20 minutes\)/);
+  assert.match(tool!.description, /default timeout of 20 minutes excluding queue time/);
+  assert.ok(tool!.promptGuidelines!.some(text => /timeoutSeconds/.test(text) && /1800 for 30 minutes/.test(text)));
 });
 
 test("renderers handle narrow terminals, every state, terminal injection, and expansion", () => {

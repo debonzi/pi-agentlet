@@ -15,12 +15,18 @@ export function validateInput(input: unknown): Task[] {
   const tasks = value.tasks.map((value: unknown, i) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`Task ${i + 1} must be an object.`);
     const task = value as Record<string, unknown>;
-    if (Object.keys(task).some(key => !["title", "task", "output"].includes(key))) throw new Error(`Task ${i + 1} has unsupported fields.`);
+    if (Object.keys(task).some(key => !["title", "task", "output", "timeoutSeconds"].includes(key))) throw new Error(`Task ${i + 1} has unsupported fields.`);
     for (const key of ["title", "task", "output"]) {
       if (typeof task[key] !== "string" || !task[key].trim()) throw new Error(`Task ${i + 1}: ${key} must be a non-empty string.`);
     }
     if ([...(task.title as string)].length > LIMITS.titleChars) throw new Error(`Task ${i + 1}: title exceeds ${LIMITS.titleChars} characters.`);
-    return { title: task.title as string, task: task.task as string, output: task.output as string };
+    const timeoutSeconds = task.timeoutSeconds;
+    if (timeoutSeconds !== undefined && (typeof timeoutSeconds !== "number" || !Number.isInteger(timeoutSeconds)
+      || timeoutSeconds < 1 || timeoutSeconds > LIMITS.maxTimeoutSeconds)) {
+      throw new Error(`Task ${i + 1}: timeoutSeconds must be an integer between 1 and ${LIMITS.maxTimeoutSeconds}.`);
+    }
+    return { title: task.title as string, task: task.task as string, output: task.output as string,
+      ...(timeoutSeconds === undefined ? {} : { timeoutSeconds }) };
   });
   if (Buffer.byteLength(JSON.stringify(tasks)) > LIMITS.inputBytes) throw new Error("Delegation input exceeds 256 KiB.");
   return tasks;

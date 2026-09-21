@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runChild } from "../src/runner.ts";
+import { LIMITS } from "../src/limits.ts";
 import { fixture, task, wait, eventually } from "./helpers.ts";
 import type { Expectation } from "../src/types.ts";
 
@@ -50,6 +51,16 @@ test("pre-cancelled invocation does not spawn", async () => {
   const controller = new AbortController(); controller.abort();
   const invocation = fixture(); invocation.command = "/nonexistent";
   assert.equal((await runChild(invocation, task, controller.signal, () => {}, limits)).state, "cancelled");
+});
+test("runner schedules 20 minutes by default and converts per-task seconds without timer overflow", async t => {
+  const timer = t.mock.method(globalThis, "setTimeout");
+  for (const timeoutSeconds of [undefined, 1, 1800, LIMITS.maxTimeoutSeconds]) {
+    timer.mock.resetCalls();
+    const result = await runChild(fixture(), { ...task, timeoutSeconds }, new AbortController().signal, () => {});
+    assert.equal(result.state, "completed");
+    assert.equal(timer.mock.calls.length, 1);
+    assert.equal(timer.mock.calls[0]!.arguments[1], timeoutSeconds === undefined ? 1_200_000 : timeoutSeconds * 1000);
+  }
 });
 test("timeout escalates for a process ignoring SIGTERM", async () => {
   const start = Date.now();

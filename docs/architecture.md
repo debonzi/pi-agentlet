@@ -57,7 +57,7 @@ Retain only bounded protocol state, the current answer candidate, usage, and com
 
 ### Lifecycle owns process cleanup
 
-The manager owns call/queue cancellation, while the runner and process-tree module own child termination and actual-close waiting. Shutdown is asynchronous and idempotent; a new session receives fresh manager state. Do not spawn children or create long-lived watchers/timers merely by loading the extension.
+The manager owns call/queue cancellation, while the runner and process-tree module own child termination and actual-close waiting. Input validation preserves each optional `timeoutSeconds` override and rejects invalid budgets before queueing. The runner converts seconds to milliseconds at child startup, using the centralized 20-minute default when omitted; queue time never consumes the budget. The maximum whole-second override fits Node's signed 32-bit timer to avoid overflow into an immediate timeout. Shutdown is asynchronous and idempotent; a new session receives fresh manager state. Do not spawn children or create long-lived watchers/timers merely by loading the extension.
 
 Linux process groups plus `/proc` descendant tracking cover ordinary tool descendants, including separate groups. Escalation is required for ignored SIGTERM; `proc.killed` alone is insufficient. This is cleanup, not a sandbox against deliberately escaping processes. Other platforms are unsupported until their cleanup behavior is implemented and tested.
 

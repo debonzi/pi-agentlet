@@ -3,7 +3,8 @@ export const LIMITS = Object.freeze({
   concurrency: 5,
   titleChars: 120,
   inputBytes: 256 * 1024,
-  timeoutMs: 10 * 60 * 1000,
+  timeoutMs: 20 * 60 * 1000,
+  maxTimeoutSeconds: Math.floor(2_147_483_647 / 1000), // Node timers use signed 32-bit milliseconds.
   graceMs: 1500,
   updateMs: 250,
   animationMs: 80,

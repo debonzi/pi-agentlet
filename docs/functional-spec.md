@@ -14,11 +14,12 @@ interface SubagentsInput {
     title: string;
     task: string;
     output: string;
+    timeoutSeconds?: number;
   }>;
 }
 ```
 
-Use the array even for a single task. `title` identifies the task; `task` supplies objective, scope, minimum context, references, and constraints; `output` specifies the expected final answer. Reject unsupported fields, invalid types, empty or whitespace-only strings, an empty task array, and exceeded limits before starting any child.
+Use the array even for a single task. `title` identifies the task; `task` supplies objective, scope, minimum context, references, and constraints; `output` specifies the expected final answer. Optional `timeoutSeconds` sets that child's execution budget in seconds, shortening or extending the 1200-second (20-minute) default. It must be an integer from 1 through 2,147,483 (the largest whole-second budget that fits Node's signed 32-bit millisecond timer). No unlimited timeout is supported. Reject unsupported fields, invalid types, empty or whitespace-only strings, an empty task array, and exceeded limits before starting any child.
 
 There are no per-task model, cwd, persona, dependency, or execution-mode fields, and no start/status/wait/cancel management operations.
 
@@ -47,7 +48,7 @@ Runtime limits are centralized in [`src/limits.ts`](../src/limits.ts). The curre
 | Simultaneous children per extension instance, across calls | 5 |
 | Title length | 120 Unicode code points |
 | Serialized task array | 256 KiB |
-| Execution timeout per child, excluding queue time | 10 minutes |
+| Execution timeout per child, excluding queue time | 20 minutes; optional per-task `timeoutSeconds` override |
 | Model-visible final answer per task, including truncation notice | 8 KiB |
 | Maximum JSONL event record | 16 MiB |
 | Progress refresh interval | 250 ms |
@@ -56,11 +57,11 @@ Runtime limits are centralized in [`src/limits.ts`](../src/limits.ts). The curre
 | Diagnostic text | 400 characters |
 | Recent activity text | 160 characters |
 
-These are internal limits, not a public preferences system. Keep the tool description, README, and tests consistent when changing them.
+Except for the per-task `timeoutSeconds` override, these are internal limits, not a public preferences system. Keep the tool description, README, and tests consistent when changing them.
 
 ## Delegation and authorization
 
-The parent must delegate substantial independent work rather than trivial searches, simple reads, or tasks needing its entire conversation. Supply all essential context; do not duplicate investigations unnecessarily.
+The parent must delegate substantial independent work rather than trivial searches, simple reads, or tasks needing its entire conversation. Supply all essential context; do not duplicate investigations unnecessarily. Tool descriptions and parent guidelines instruct the parent to set `timeoutSeconds` on a task when a shorter or longer budget is appropriate, or omit it for 20 minutes.
 
 For analysis, explicitly instruct children not to modify files. For authorized edits, assign disjoint scopes. Do not combine delegation with sibling tools modifying files children are examining or editing. Findings describe observed content and must be revalidated before applying changes; child output is evidence, not a higher-priority instruction.
 
@@ -103,7 +104,7 @@ Acceptance requires automated coverage of:
 1. Complete validation before startup; one/many tasks; five-child cross-call concurrency, FIFO queueing, stable result order, and blocking completion.
 2. Fresh prompts, parent/child guidance, retained child tool availability, and applicable resource/model/thinking/trust/tool-restriction reconstruction with explicit incompatibility failures.
 3. Final-only extraction, usage deduplication, UTF-8 framing/truncation, malformed or oversized output, provider/spawn/exit/signal failures, and partial answers that must not count as success.
-4. Pre-start, queued, and running cancellation; queue-independent timeout; forced descendant cleanup; lifecycle/race idempotence; and no late progress.
+4. Pre-start, queued, and running cancellation; 20-minute default and validated per-task timeout overrides, isolated across siblings/calls and independent of queue time; forced descendant cleanup; lifecycle/race idempotence; and no late progress.
 5. Private recoverable artifacts, artifact failures, compact metadata-only updates, narrow/expanded UI, running-task animation and timer/listener cleanup across concurrent calls and teardown, and headless execution without extra stdout.
 
 Run the network-, credential-, and global-installation-independent fixture suite and type checks using the [development guide](development.md#automated-checks). Real-host offline smoke is opt-in; paid-provider and interactive checks require explicit authorization. Documentation and tests must describe implemented behavior, not planned features.

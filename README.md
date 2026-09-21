@@ -12,7 +12,7 @@ Let your main agent delegate a focused investigation without filling its convers
 
 pi-agentlet is for people who want **delegation, not an orchestration framework**.
 
-- **One tool, three fields per task.** No agent definitions, role files, or workflow configuration to maintain.
+- **One tool, three required fields per task.** No agent definitions, role files, or workflow configuration to maintain.
 - **Independent context.** Subagents do not receive the parent conversation. Their investigation stays out of it; only final answers and compact failure diagnostics come back.
 - **Your existing pi setup.** Children use the parent's model and thinking level, working directory, and applicable extensions, skills, instructions, and tool restrictions. Unsupported configuration fails explicitly instead of silently falling back.
 - **Bounded parallel work.** Up to five children run at once. The main agent waits for the results while pi's interface remains responsive.
@@ -82,6 +82,8 @@ Then compare their final answers and summarize the priorities.
 
 Replace the paths with files in your project. Pi supplies the tool arguments; you do not need to write JSON yourself.
 
+Each child has a **20-minute execution timeout** by default. Ask the main agent for a different budget when needed, for example: “Give the authentication review 30 minutes.” The agent can set `timeoutSeconds: 1800` on that task in the tool call; other tasks keep the default. Queue time does not count.
+
 ### What happens
 
 1. Pi sends self-contained tasks to `subagents`.
@@ -107,6 +109,7 @@ The only input is a `tasks` array. Every task has three required, non-empty stri
 | `title` | Short label for progress and results. |
 | `task` | Objective, scope, context, references, and constraints. |
 | `output` | Expected final-answer format and content. |
+| `timeoutSeconds` (optional) | Execution timeout for this child: an integer from 1 to 2,147,483 seconds. Omit for 1200 seconds (20 minutes). |
 
 ```json
 {
@@ -114,7 +117,8 @@ The only input is a `tasks` array. Every task has three required, non-empty stri
     {
       "title": "Review authentication",
       "task": "Analyze src/auth.ts for token expiry and renewal bugs. Do not modify files.",
-      "output": "Up to five concrete findings with file:line, impact, and suggested fix. State explicitly if none."
+      "output": "Up to five concrete findings with file:line, impact, and suggested fix. State explicitly if none.",
+      "timeoutSeconds": 1800
     },
     {
       "title": "Review test coverage",
@@ -135,10 +139,10 @@ For one task, use the same array with one element. There are no per-task model, 
 |---|---:|
 | Tasks per call | 1–8 |
 | Simultaneous children per extension instance, across calls | 5 |
-| Execution time per child, excluding queue time | 10 minutes |
+| Execution time per child, excluding queue time | 20 minutes; override per task with `timeoutSeconds` |
 | Final answer returned per task | 8 KiB |
 
-A timeout affects only that child. Failed, interrupted, or incomplete answers are reported as such rather than presented as successful results. See the [full limits and result contract](docs/functional-spec.md) for details.
+A timeout affects only that child. `timeoutSeconds` can shorten or extend the default; zero (unlimited) is not supported. Its upper bound prevents Node.js timer overflow. Failed, interrupted, or incomplete answers are reported as such rather than presented as successful results. See the [full limits and result contract](docs/functional-spec.md) for details.
 
 **Long answers are preserved.** If a final answer exceeds 8 KiB, the returned text includes a truncation notice and a path to the complete answer in a private `pi-agentlet-result-*` directory outside the repository. Artifacts contain only final answers and remain until you delete them or the OS cleans temporary files. Save important results elsewhere and review them before sharing. Child transcripts are not persisted by pi-agentlet; third-party extensions may have their own logging.
 

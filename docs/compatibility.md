@@ -6,7 +6,7 @@ Reviewed installation: `@earendil-works/pi-coding-agent` **0.86.1**; Node **24.1
 
 ## Public APIs used
 
-- `ExtensionAPI.registerTool`, `promptSnippet`, and named `promptGuidelines`; failures of the tool itself are thrown, not returned as an ineffective `isError` property.
+- `ExtensionAPI.registerTool`, `promptSnippet`, and named `promptGuidelines`; failures of the tool itself are thrown, not returned as an ineffective `isError` property. Optional per-task `timeoutSeconds` uses a bounded TypeBox integer; the runner owns the timer, with no additional host timeout API needed. Pi normalizes/coerces arguments before execution (including nullable optional fields for strict providers); extension validation checks the resulting values, not the original model payload.
 - `before_agent_start.systemPromptOptions` exposes structured skills, context files, and custom/appended prompt inputs. The adapter retains this configuration reference for comparison, not the parent prompt/history.
 - `ctx.model`, `ctx.thinkingLevel`, `ctx.isProjectTrusted()`, `pi.getAllTools()`, `pi.getActiveTools()`, `getAgentDir()`, `parseArgs()`, and `VERSION` expose effective configuration and CLI parsing.
 - `onUpdate`, `renderCall`, `renderResult`, theme colors, and TUI width helpers implement the tool-local UI. `ToolRenderContext.toolCallId` associates a row with its live execution; `invalidate()` rebuilds the row and requests rendering for UI-only animation. `usage` on the final tool result is supported.

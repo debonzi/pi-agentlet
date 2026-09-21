@@ -1,7 +1,7 @@
 import type { Usage } from "@earendil-works/pi-ai";
 
 export type { Usage };
-export interface Task { title: string; task: string; output: string }
+export interface Task { title: string; task: string; output: string; timeoutSeconds?: number }
 export type TaskState = "queued" | "running" | "completed" | "failed" | "cancelled" | "timed_out";
 export interface TaskResult {
   id: string;
