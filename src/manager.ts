@@ -62,12 +62,17 @@ export class Manager {
     const prefix = randomUUID().slice(0, 8);
     const results: TaskResult[] = tasks.map((t, i) => ({ id: `${prefix}-s${i + 1}`, title: t.title, state: "queued" }));
     let stoppedUpdates = false;
+    let lastProgress = "";
     const publish = () => {
-      if (stoppedUpdates || this.closed || controller.signal.aborted) return;
-      // No child transcript, partial answer, or progress string enters model-visible content.
-      try {
-        update?.({ content: [], details: { tasks: results.map(t => ({ ...t, answer: undefined, diagnostic: undefined })) } });
-      } catch { /* A detached UI observer must not interrupt process cleanup. */ }
+      if (!update || stoppedUpdates || this.closed || controller.signal.aborted) return;
+      // Publish only bounded presentation metadata. Child answers and diagnostics stay private.
+      const details: Details = { tasks: results.map(({ id, title, state, startedAt, endedAt, activity }) =>
+        ({ id, title, state, startedAt, endedAt, activity })) };
+      const progress = JSON.stringify(details);
+      if (progress === lastProgress) return;
+      lastProgress = progress;
+      try { update({ content: [], details }); }
+      catch { /* A detached UI observer must not interrupt process cleanup. */ }
     };
     const cancel = () => {
       controller.abort();

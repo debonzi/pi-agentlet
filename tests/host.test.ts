@@ -58,7 +58,7 @@ test("renderers handle narrow terminals, every state, terminal injection, and ex
   const details: Details = { tasks: states.map((state, i) => ({
     id: `s${i}`, title: "Review\x1b]52;c;secret\x07", state,
     answer: state === "completed" ? "No findings." : undefined,
-    activity: "read file.ts\x1b[31m", startedAt: 1, endedAt: 1000,
+    startedAt: 1, endedAt: 1000,
   })) };
   for (const width of [0, 1, 2, 10, 30, 80]) {
     for (const view of [callView([task], theme), resultView(details, "", false, theme), resultView(details, "", true, theme, [task])]) {
@@ -129,15 +129,57 @@ test("animation cleanup isolates concurrent calls and detached renderers", t => 
   second.stop();
 });
 
-test("animated icons affect only running tasks in compact and expanded views", () => {
-  const states: TaskState[] = ["queued", "running", "completed", "failed", "cancelled", "timed_out"];
-  const details: Details = { tasks: states.map((state, i) => ({ id: `s${i}`, title: "Review", state })) };
+test("partial views keep all changing rows in a stable tail", () => {
+  const first: Details = { tasks: [
+    { id: "s1", title: "First", state: "running", startedAt: Date.now(), activity: "read src/ui.ts" },
+    { id: "s2", title: "Second", state: "queued" },
+  ] };
+  const second: Details = { tasks: [
+    { id: "s1", title: "First", state: "completed", startedAt: Date.now(), endedAt: Date.now(), activity: "read src/ui.ts" },
+    { id: "s2", title: "Second", state: "running", startedAt: Date.now(), activity: "grep manager" },
+  ] };
+  const args = [{ ...task, title: "First" }, { ...task, title: "Second" }];
   for (const expanded of [false, true]) {
-    const view = resultView(details, "", expanded, theme, [task], "⠙");
-    assert.deepEqual(view.render(200).filter(line => / s\d /.test(line)).map(line => line.split(" ")[0]),
-      ["·", "⠙", "✓", "✗", "⊘", "⌛"]);
-    for (const width of [0, 1, 2, 10, 30, 80]) assert.ok(view.render(width).every(line => [...line].length <= width));
+    const before = resultView(first, "", expanded, theme, args, "⠙", true).render(200);
+    const after = resultView(second, "", expanded, theme, args, "⠹", true).render(200);
+    const tailLines = 1 + first.tasks.length * 2;
+    assert.deepEqual(before.slice(0, -tailLines), after.slice(0, -tailLines));
+    assert.equal(before.length, after.length);
+    assert.equal(before.filter(line => /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/.test(line)).length, 1);
+    if (expanded) assert.match(before.slice(0, -tailLines).join("\n"), /Task 1.*Analyze local source.*Expected output/s);
+    else assert.equal(before.slice(0, -tailLines).length, 0);
+    assert.match(before.slice(-tailLines).join("\n"), /subagents · 2 tasks.*→ ⠙ s1 First — running.*read src\/ui\.ts.*→ · s2 Second — queued/s);
+    for (const width of [0, 1, 2, 10, 30, 80]) {
+      assert.ok(resultView(first, "", expanded, theme, args, "⠙", true).render(width).every(line => [...line].length <= width));
+    }
   }
+});
+
+test("progress falls back to one aggregate row when task rows do not fit", () => {
+  const descriptor = Object.getOwnPropertyDescriptor(process.stdout, "rows");
+  Object.defineProperty(process.stdout, "rows", { configurable: true, value: 10 });
+  try {
+    const details: Details = { tasks: Array.from({ length: 3 }, (_, i) =>
+      ({ id: `s${i}`, title: "Review", state: "running", activity: "read source.ts" })) };
+    for (const expanded of [false, true]) {
+      const lines = resultView(details, "", expanded, theme, Array(3).fill(task), "⠙", true).render(200);
+      assert.match(lines.at(-1)!, /^⠙ 3 running · 0 finished · 0 queued/);
+      assert.doesNotMatch(lines.join("\n"), /→/);
+    }
+  } finally {
+    if (descriptor) Object.defineProperty(process.stdout, "rows", descriptor);
+    else Reflect.deleteProperty(process.stdout, "rows");
+  }
+});
+
+test("final views retain per-task states, answers, diagnostics and usage", () => {
+  const states: TaskState[] = ["queued", "running", "completed", "failed", "cancelled", "timed_out"];
+  const details: Details = { tasks: states.map((state, i) => ({
+    id: `s${i}`, title: "Review", state, answer: state === "completed" ? "Answer" : undefined,
+  })) };
+  const lines = resultView(details, "", true, theme, states.map(() => task), "⠙", false).render(200);
+  assert.deepEqual(lines.filter(line => / s\d /.test(line)).map(line => line.split(" ")[0]), ["·", "◌", "✓", "✗", "⊘", "⌛"]);
+  assert.match(lines.join("\n"), /Answer/);
 });
 
 test("host registration, headless execution, compact updates, errors and lifecycle work without TUI or direct stdout", async t => {
@@ -193,7 +235,7 @@ test("host registration, headless execution, compact updates, errors and lifecyc
         text = tool!.renderResult!(latest, { expanded: false, isPartial }, theme, context).render(200).join("\n");
       };
       return {
-        update: (result: any) => { updates++; latest = result; render(); },
+        update: (result: any, isPartial = true) => { updates++; latest = result; render(isPartial); },
         render, text: () => text, redraws: () => redraws, updates: () => updates,
       };
     };
@@ -211,7 +253,7 @@ test("host registration, headless execution, compact updates, errors and lifecyc
     assert.equal(getEventListeners(completeSignal.signal, "abort").length, 0);
     t.mock.timers.tick(800);
     assert.equal(completed.redraws(), 1);
-    completed.update(final);
+    completed.update(final, false);
     assert.match(completed.text(), /✓ .*completed/);
 
     const first = row("first"), second = row("second");

@@ -53,7 +53,7 @@ Run only with authorization to use the configured provider and resources:
 
 1. Start `pi -e ./index.ts` with the desired model and thinking level.
 2. Ask it to run two independent read-only reviews against real local files, as in the [README example](../README.md#use-it).
-3. Check that the ordinary tool block updates while the parent waits: running tasks have pi's default Working spinner, queued/finished tasks stay static, expansion works at narrow terminal widths, and only final findings return. Animation should stop on completion or cancellation without changing the editor/footer.
+3. Check that the ordinary tool block updates while the parent waits: compact and expanded views have stable per-task state/activity rows when they fit, while expanded view also shows static task instructions; both use the aggregate fallback in a short terminal. Verify narrow widths, then make the expanded block taller than the terminal and confirm animation does not flicker, clear scrollback, or prevent scroll-up. Only final findings should return, and animation should stop on completion or cancellation without changing the editor/footer.
 4. Start six bounded tasks; verify that five run while one queues. Press Escape; verify that running and queued tasks cancel.
 5. Repeat with explicit local `-e`, `--skill`, tool exclusions, and temporary project trust. Check inherited resources, then try an unreconstructible configuration and verify an explicit failure rather than fallback.
 6. After a run, exercise `/reload`, `/new`, `/resume`, `/fork`, and quit; verify that no child processes or progress callbacks remain.

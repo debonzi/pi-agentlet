@@ -58,7 +58,7 @@ export default function subagents(pi: ExtensionAPI): void {
       const details = result.details as Details | undefined;
       const runningIcon = animations.get(context.toolCallId)?.frame(
         isPartial && !!details?.tasks?.some(task => task.state === "running"), context.invalidate);
-      return resultView(details, fallback, expanded, theme, context.args.tasks, runningIcon);
+      return resultView(details, fallback, expanded, theme, context.args.tasks, runningIcon, isPartial);
     },
   });
 }

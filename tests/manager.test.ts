@@ -96,16 +96,19 @@ test("shared concurrency, FIFO queue, stable result order, and blocking across s
   assert.deepEqual(secondResult.details.tasks.map(t => t.title), ["e", "f", "g"]);
   assert.equal(new Set([...firstResult.details.tasks, ...secondResult.details.tasks].map(t => t.id)).size, 7);
 });
-test("progress updates while blocked contain only compact metadata; final content never contains activity", async () => {
+test("progress publishes only changed bounded metadata; final content never contains activity", async () => {
   const control = controlled(); const updates: { content: []; details: Details }[] = [];
   const manager = new Manager({ runner: control.runner });
   const work = manager.execute(tasks("a"), fixture(), undefined, update => updates.push(update));
-  await eventually(() => updates.some(u => u.details.tasks[0]?.activity));
+  await eventually(() => updates.some(u => u.details.tasks[0]?.state === "running" && u.details.tasks[0].activity));
   assert.ok(updates.every(u => u.content.length === 0));
+  assert.ok(updates.every(u => u.details.tasks.every(t => t.answer === undefined && t.diagnostic === undefined)));
+  assert.ok(updates.some(u => u.details.tasks[0]?.activity === "read private.ts"));
+  const count = updates.length; await wait(300); assert.equal(updates.length, count);
   control.release.get("a")!(success);
   const result = await work;
   assert.doesNotMatch(result.content[0]!.text, /private.ts|read|PRIVATE/);
-  const count = updates.length; await wait(300); assert.equal(updates.length, count);
+  const settled = updates.length; await wait(300); assert.equal(updates.length, settled);
 });
 test("cancel before startup, during execution, and in another call's queue", async () => {
   const control = controlled(); const manager = new Manager({ runner: control.runner, concurrency: 1 });

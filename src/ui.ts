@@ -64,18 +64,48 @@ export function callView(tasks: Partial<Task>[] | undefined, theme: Theme): Comp
   };
 }
 export function resultView(details: Details | undefined, fallback: string, expanded: boolean, theme: Theme,
-  tasks?: Partial<Task>[], runningIcon?: string): Component {
+  tasks?: Partial<Task>[], runningIcon?: string, isPartial = false): Component {
   return {
     invalidate() {},
     render(width) {
       if (width <= 0) return [];
       if (!details?.tasks) return wrapTextWithAnsi(safeText(fallback), width).map(line => truncateToWidth(line, width));
       const terminal = details.tasks.filter(t => t.state !== "queued" && t.state !== "running").length;
+      if (isPartial) {
+        const lines: string[] = [];
+        if (expanded) {
+          for (const [i, task] of details.tasks.entries()) {
+            lines.push(theme.fg("muted", `Task ${i + 1} · ${oneLine(task.title, 120)}`));
+            const content = [tasks?.[i]?.task, tasks?.[i]?.output && `Expected output: ${tasks[i]!.output}`]
+              .filter((s): s is string => typeof s === "string");
+            for (const text of content) lines.push(...wrapTextWithAnsi(safeText(text), width).map(line => theme.fg("toolOutput", line)));
+          }
+        }
+        const running = details.tasks.filter(task => task.state === "running").length;
+        const queued = details.tasks.filter(task => task.state === "queued").length;
+        const availableRows = Math.max(1, (process.stdout.rows || 24) - 6); // Reserve the editor/footer below the tool.
+        const detailed = 1 + details.tasks.length * 2 <= availableRows;
+        if (detailed) {
+          const taskLabel = details.tasks.length === 1 ? "task" : "tasks";
+          lines.push(theme.fg("muted", `subagents · ${details.tasks.length} ${taskLabel}`));
+          for (const task of details.tasks) {
+            const elapsed = task.startedAt === undefined ? "" : ` ${Math.max(0, Math.round(((task.endedAt ?? Date.now()) - task.startedAt) / 1000))}s`;
+            const icon = task.state === "running" ? runningIcon ?? icons.running : icons[task.state];
+            lines.push(theme.fg(color(task), `→ ${icon} ${task.id} ${oneLine(task.title, 120)} — ${task.state}${elapsed}`));
+            lines.push(theme.fg("dim", task.activity ? `   ${oneLine(task.activity, 160)}` : " "));
+          }
+        } else {
+          const startedAt = details.tasks.reduce<number | undefined>((first, task) =>
+            task.startedAt === undefined ? first : Math.min(first ?? task.startedAt, task.startedAt), undefined);
+          const elapsed = startedAt === undefined ? "" : ` · ${Math.max(0, Math.round((Date.now() - startedAt) / 1000))}s`;
+          lines.push(theme.fg("warning", `${running ? runningIcon ?? icons.running : icons.queued} ${running} running · ${terminal} finished · ${queued} queued${elapsed}`));
+        }
+        return lines.map(line => truncateToWidth(line, width));
+      }
       const lines = [theme.fg("muted", `subagents · ${terminal}/${details.tasks.length} finished`)];
       for (const [i, task] of details.tasks.entries()) {
         const elapsed = task.startedAt ? ` ${Math.max(0, Math.round(((task.endedAt ?? Date.now()) - task.startedAt) / 1000))}s` : "";
-        lines.push(theme.fg(color(task), `${task.state === "running" ? runningIcon ?? icons.running : icons[task.state]} ${task.id} ${oneLine(task.title, 120)} — ${task.state}${elapsed}`));
-        if (task.state === "running" && task.activity) lines.push(theme.fg("dim", `  ${oneLine(task.activity, 160)}`));
+        lines.push(theme.fg(color(task), `${icons[task.state]} ${task.id} ${oneLine(task.title, 120)} — ${task.state}${elapsed}`));
         if (task.state === "completed" && task.answer && !expanded) lines.push(theme.fg("muted", `  ${oneLine(task.answer, 120)}`));
         if (expanded) {
           const content = [tasks?.[i]?.task, tasks?.[i]?.output && `Expected output: ${tasks[i]!.output}`,

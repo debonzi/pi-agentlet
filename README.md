@@ -88,7 +88,7 @@ Each child has a **20-minute execution timeout** by default. Ask the main agent 
 
 1. Pi sends self-contained tasks to `subagents`.
 2. Each child opens a fresh pi session in the same working directory. Up to five run at once; additional tasks wait in a queue.
-3. The tool block shows each task's state, elapsed time, and recent tool activity, with pi's familiar “Working” spinner beside running tasks. The main agent waits, but the interface stays responsive.
+3. While work is running, the tool block ends with a stable tail showing each task's animated state, elapsed time, and recent activity. Expansion additionally shows the static task instructions above it. Small terminals automatically use a one-line aggregate summary instead. The main agent waits, but the interface stays responsive.
 4. The main agent receives final answers in the original task order, then continues your conversation. One child's failure does not discard the others' results.
 
 Use pi's normal tool expansion to inspect the task instructions, final answers, and reported usage. **Escape** cancels the call's running and queued tasks. Closing or reloading the session also cancels and cleans up its children.
