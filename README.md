@@ -24,11 +24,11 @@ It is a good fit for independent code reviews, test-coverage checks, and focused
 
 ### Requirements
 
-- **pi >=0.86.0 and <0.88.0** from `@earendil-works/pi-coding-agent`, installed through Node/npm.
+- **pi `>=0.86.0 <0.88.0` or `>=0.99.1 <0.100.0`** from `@earendil-works/pi-coding-agent`, installed through Node/npm.
 - **Node.js 24+** and **Linux**.
 - A working pi model/provider configuration.
 
-Compatibility is intentionally bounded: pi versions outside the supported range are rejected. Native binary installations are not integration-tested. See [compatibility notes](docs/compatibility.md) for SDK, wrapper, and extension limitations.
+Compatibility is intentionally bounded: pi versions outside these two ranges are rejected. Select a physical model; virtual models and their routing state are not supported. Native binary installations are not integration-tested. See [compatibility notes](docs/compatibility.md) for SDK, wrapper, and extension limitations.
 
 ### From GitHub
 
@@ -150,7 +150,7 @@ A timeout affects only that child. `timeoutSeconds` can shorten or extend the de
 
 **Smaller parent context does not mean lower cost.** Each child makes its own model requests. Reported usage is aggregated, but total tokens, cost, and latency may increase.
 
-**Resources are reloaded, not cloned from memory.** Extension startup side effects can repeat. Extensions requiring a TUI or human confirmation may not work in children. Keep resource configuration unchanged during delegation. pi-agentlet does not automatically approve prompts, install missing resources, or silently switch models to make a task run. See [compatibility notes](docs/compatibility.md) if your setup is unsupported.
+**Resources are reloaded, not cloned from memory.** Extension startup side effects can repeat, including MCP connections on pi 0.99. Extensions requiring a TUI or human confirmation may not work in children. Keep resource configuration unchanged during delegation. pi-agentlet does not automatically approve prompts, install missing resources, or silently switch models to make a task run. See [compatibility notes](docs/compatibility.md) if your setup is unsupported.
 
 ## Development
 

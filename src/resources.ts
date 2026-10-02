@@ -6,9 +6,11 @@ import type { Args, BuildSystemPromptOptions, ExtensionAPI, ExtensionContext } f
 import type { Expectation, Invocation } from "./types.ts";
 
 export const GUARD_PATH = fileURLToPath(new URL("./verify-child.ts", import.meta.url));
-export const SUPPORTED_PI_RANGE = ">=0.86.0 <0.88.0";
-const MIN_SUPPORTED_PI_VERSION = [0, 86, 0] as const;
-const MAX_SUPPORTED_PI_VERSION = [0, 88, 0] as const;
+export const SUPPORTED_PI_RANGE = ">=0.86.0 <0.88.0 || >=0.99.1 <0.100.0";
+const SUPPORTED_PI_WINDOWS = [
+  [[0, 86, 0], [0, 88, 0]],
+  [[0, 99, 1], [0, 100, 0]],
+] as const;
 
 type VersionTuple = readonly [number, number, number];
 
@@ -25,8 +27,8 @@ export function supportsPiVersion(version: string): boolean {
   if (!match) return false;
   const parsed: VersionTuple = [Number(match[1]), Number(match[2]), Number(match[3])];
   if (!parsed.every(Number.isSafeInteger)) return false;
-  return compareVersions(parsed, MIN_SUPPORTED_PI_VERSION) >= 0
-    && compareVersions(parsed, MAX_SUPPORTED_PI_VERSION) < 0;
+  return SUPPORTED_PI_WINDOWS.some(([minimum, maximum]) =>
+    compareVersions(parsed, minimum) >= 0 && compareVersions(parsed, maximum) < 0);
 }
 
 export function digest(value: unknown): string {
@@ -53,19 +55,32 @@ export function resourceHash(options: BuildSystemPromptOptions): string {
     contextFiles: options.contextFiles,
   });
 }
-export function toolHash(pi: Pick<ExtensionAPI, "getAllTools" | "getActiveTools">): string {
+type ToolMetadata = ReturnType<ExtensionAPI["getAllTools"]>[number] & {
+  // Pi 0.86/0.87 do not expose these fields; their tools use direct exposure.
+  exposure?: "direct" | "model-only" | "codemode" | "deferred" | "hidden";
+  namespace?: { name: string; description?: string };
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint?: boolean };
+};
+function availableTools(pi: Pick<ExtensionAPI, "getAllTools" | "getActiveTools">) {
   const active = new Set(pi.getActiveTools());
-  return digest(pi.getAllTools().filter(t => active.has(t.name)).map(t => ({
-    name: t.name, description: t.description, parameters: t.parameters, promptGuidelines: t.promptGuidelines,
+  return (pi.getAllTools() as ToolMetadata[]).map(tool => ({ tool, active: active.has(tool.name), exposure: tool.exposure ?? "direct" }))
+    .filter(({ active, exposure }) => exposure !== "hidden" && (active || exposure === "codemode" || exposure === "deferred"));
+}
+export function toolHash(pi: Pick<ExtensionAPI, "getAllTools" | "getActiveTools">): string {
+  // In pi 0.99, registered codemode/deferred tools remain callable while inactive.
+  return digest(availableTools(pi).map(({ tool: t, active, exposure }) => ({
+    name: t.name, active, exposure, description: t.description, parameters: t.parameters,
+    promptGuidelines: t.promptGuidelines, namespace: t.namespace, annotations: t.annotations,
   })).sort((a, b) => a.name.localeCompare(b.name)));
 }
 
 export function expectation(pi: ExtensionAPI, ctx: ExtensionContext, options: BuildSystemPromptOptions, version: string): Expectation {
   if (!supportsPiVersion(version)) throw new Error(`subagents supports pi ${SUPPORTED_PI_RANGE}; installed version is ${version}. Review resource/lifecycle APIs before expanding compatibility.`);
   if (!ctx.model) throw new Error("subagents requires an explicitly resolved parent model.");
+  if (ctx.model.api === "pi-virtual") throw new Error("subagents does not support virtual models. Select a physical model; routing policy and state cannot be reconstructed.");
   if (options.forceSystemPrompt) throw new Error("subagents cannot reconstruct an in-memory forced system prompt. Put reusable instructions in normal resources.");
   if (!pi.getActiveTools().includes("subagents")) throw new Error("subagents must remain available in the child tool selection.");
-  if (pi.getAllTools().some(t => pi.getActiveTools().includes(t.name) && t.sourceInfo.source === "sdk")) {
+  if (availableTools(pi).some(({ tool }) => tool.sourceInfo.source === "sdk")) {
     throw new Error("subagents cannot reconstruct inline SDK tools. Load them through a file-backed extension.");
   }
   return {
@@ -110,7 +125,7 @@ export function buildInvocation(input: {
   if (p.diagnostics.some(d => d.type === "error")) throw new Error("Parent CLI configuration contains errors; subagents cannot reproduce it.");
   const args = [...input.exec.prefix, "--mode", "json", "--print", "--no-session", "--offline",
     e.trusted ? "--approve" : "--no-approve", "--provider", e.provider, "--model", e.model, "--thinking", e.thinking];
-  const pathArg = (s: string) => /^(?:npm:|git:|https?:|ssh:|git@)/.test(s) ? s
+  const pathArg = (s: string) => /^(?:builtin:|npm:|git:|https?:|ssh:|git@)/.test(s) ? s
     : s.startsWith("~") || isAbsolute(s) ? s : resolve(input.startupCwd, s);
   for (const [flag, paths] of [
     ["--extension", p.extensions], ["--skill", p.skills], ["--prompt-template", p.promptTemplates], ["--theme", p.themes],
@@ -146,7 +161,7 @@ export function mismatch(e: Expectation, pi: ExtensionAPI, ctx: ExtensionContext
   if (ctx.model?.provider !== e.provider || ctx.model?.id !== e.model || digest(ctx.model) !== e.modelHash) return "model/provider configuration";
   if (providerHash(ctx) !== e.providerHash) return "provider registration configuration";
   if ((ctx.thinkingLevel ?? pi.getThinkingLevel()) !== e.thinking) return "thinking level";
-  if (toolHash(pi) !== e.toolsHash) return "active tools (including extension tools)";
+  if (toolHash(pi) !== e.toolsHash) return "active or callable tools (including exposure and metadata)";
   if (resourceHash(options) !== e.resourcesHash) return "skills, context files, or prompt configuration";
   return undefined;
 }

@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Args, BuildSystemPromptOptions, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { buildInvocation, digest, executable, expectation, mismatch, supportsPiVersion } from "../src/resources.ts";
+import { buildInvocation, digest, executable, expectation, mismatch, supportsPiVersion, toolHash } from "../src/resources.ts";
 
 const SUPPORTED_VERSION = "0.87.0";
 
@@ -69,12 +69,75 @@ test("verification detects non-reproducible configuration without any fallback",
   assert.throws(() => expectation(pi, ctx, { ...options, forceSystemPrompt: "private parent state" }, SUPPORTED_VERSION), /in-memory/);
   assert.throws(() => buildInvocation({ parsed: parsed({ apiKey: "secret" }), expected, agentDir: "/config", startupCwd: "/launch", exec: { command: "/pi", prefix: [] } }), /--api-key/);
 });
-test("pi compatibility accepts stable releases in the supported range only", () => {
-  for (const version of ["0.86.0", "0.86.2", "0.87.0", "0.87.999", "0.87.0+build.1"]) {
+test("pi compatibility accepts stable releases in the two reviewed windows only", () => {
+  for (const version of ["0.86.0", "0.86.2", "0.87.0", "0.87.999", "0.87.0+build.1", "0.99.1", "0.99.999", "0.99.1+build.1"]) {
     assert.equal(supportsPiVersion(version), true, version);
   }
-  for (const version of ["0.85.999", "0.88.0", "1.0.0", "0.87.0-beta.1", "0.087.0", "invalid"]) {
+  for (const version of ["0.85.999", "0.88.0", "0.98.999", "0.99.0", "0.100.0", "1.0.0", "0.87.0-beta.1", "0.99.1-rc.1", "0.087.0", "0.099.1", "invalid"]) {
     assert.equal(supportsPiVersion(version), false, version);
+  }
+});
+test("virtual model selections fail explicitly before invocation instead of replaying a router", () => {
+  const { pi, ctx, options } = host();
+  assert.doesNotThrow(() => expectation(pi, ctx, options, "0.99.1"));
+  assert.throws(() => expectation(pi, { ...ctx, model: { ...ctx.model!, api: "pi-virtual" } }, options, "0.99.1"), /virtual models.*physical model.*routing policy and state/);
+});
+test("CLI reconstruction preserves builtin extension identifiers with explicit discovery exclusions", () => {
+  const { pi, ctx, options } = host();
+  const expected = expectation(pi, ctx, options, "0.99.1");
+  const invocation = buildInvocation({
+    parsed: parsed({ noExtensions: true, extensions: ["builtin:codemode", "builtin:tool-search", "builtin:mcp", "./local.ts"] }),
+    expected, agentDir: "/config", startupCwd: "/launch", exec: { command: "/pi", prefix: [] },
+  });
+  assert.ok(invocation.args.includes("--no-extensions"));
+  const paths = invocation.args.flatMap((value, i) => value === "--extension" ? [invocation.args[i + 1]] : []);
+  assert.deepEqual(paths.slice(0, 4), ["builtin:codemode", "builtin:tool-search", "builtin:mcp", "/launch/local.ts"]);
+});
+test("tool equivalence covers inactive callable tools, declaration state, exposure and metadata", () => {
+  const { pi, ctx, options } = host();
+  type Metadata = { name: string; description: string; parameters: object; promptGuidelines?: string[];
+    sourceInfo: { source: string }; exposure?: string; namespace?: { name: string; description?: string };
+    annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean } };
+  const base: Metadata = { name: "subagents", description: "delegate", parameters: {}, sourceInfo: { source: "local" } };
+  let tools: Metadata[] = [base];
+  let active = [base.name];
+  const current = { ...pi, getAllTools: () => tools, getActiveTools: () => active } as unknown as ExtensionAPI;
+  const original = toolHash(current);
+  tools = [{ ...base, exposure: "direct" }];
+  assert.equal(toolHash(current), original); // Legacy hosts omit exposure.
+  tools = [base, { ...base, name: "dormant", exposure: "direct" }, { ...base, name: "hidden", exposure: "hidden" }];
+  assert.equal(toolHash(current), original);
+  for (const exposure of ["codemode", "deferred"]) {
+    const callable = { ...base, name: "fixture_callable", exposure };
+    tools = [base, callable];
+    const expected = expectation(current, ctx, options, "0.99.1");
+    assert.notEqual(expected.toolsHash, original);
+    assert.equal(mismatch(expected, current, ctx, options), undefined);
+    for (const patch of [
+      { description: "changed" }, { parameters: { type: "string" } }, { promptGuidelines: ["Use fixture_callable safely."] },
+      { exposure: "hidden" }, { exposure: "direct" }, { exposure: "model-only" },
+      { namespace: { name: "fixture", description: "Local fixture" } }, { annotations: { readOnlyHint: true } },
+    ]) {
+      tools = [base, { ...callable, ...patch }];
+      assert.match(mismatch(expected, current, ctx, options)!, /active or callable tools/);
+    }
+    tools = [base, callable];
+    active = [base.name, callable.name];
+    assert.match(mismatch(expected, current, ctx, options)!, /tools/); // Callable and declared are distinct.
+    active = [base.name];
+    tools = [callable, base];
+    assert.equal(toolHash(current), expected.toolsHash); // Registration order does not affect equivalence.
+  }
+  tools = [{ ...base, exposure: "model-only" }];
+  assert.notEqual(toolHash(current), original);
+});
+test("callable SDK tools are rejected even when not declared to the model", () => {
+  const { pi, ctx, options } = host();
+  for (const exposure of ["codemode", "deferred"]) {
+    const current = { ...pi, getAllTools: () => [...pi.getAllTools(), {
+      name: "inline", description: "SDK-only", parameters: {}, exposure, sourceInfo: { source: "sdk" },
+    }] } as unknown as ExtensionAPI;
+    assert.throws(() => expectation(current, ctx, options, "0.99.1"), /inline SDK tools/);
   }
 });
 test("stable configuration hashes do not depend on object property order", () => {

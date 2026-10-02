@@ -38,14 +38,14 @@ Set the same variables when running `npm run check` without local dependencies. 
 
 ## Real-pi offline smoke
 
-An opt-in integration smoke uses an isolated temporary configuration and a deterministic in-process fake provider. It makes no network or paid-model calls and deletes its fixture configuration afterward:
+An opt-in integration smoke uses an isolated temporary configuration and a deterministic in-process fake provider. On pi 0.99 it also uses file-backed callable tools and a local stdio MCP fixture with no external dependencies. It makes no network or paid-model calls and deletes its fixture configuration afterward:
 
 ```sh
 PI_AGENTLET_CLI=/absolute/path/to/pi-coding-agent/dist/bundle/cli.js \
   node scripts/smoke.mjs
 ```
 
-The shipped `dist/cli.js` entry point is also supported. When run with a host in the supported pi range on Node 24+ and Linux, the smoke exercises a parent delegation to three children, independent contexts, retained child tool availability, resource verification, and valid JSON stdout. It does not validate interactive behavior or a paid provider. See [compatibility evidence](compatibility.md#validation).
+The shipped `dist/cli.js` entry point is also supported. When run with a host in either supported pi range on Node 24+ and Linux, the smoke exercises a parent delegation to three children, independent contexts, retained child tool availability, resource verification, timeout isolation, and valid JSON stdout. On pi 0.99 it additionally checks explicit `builtin:` selections with discovery disabled, inactive callable tools through real codemode, nested usage, annotation mismatch rejection, virtual-model rejection, local MCP startup/cleanup, and shutdown cancellation of running and queued tasks. It does not validate interactive behavior or a paid provider. See [compatibility evidence](compatibility.md#validation).
 
 ## Manual interactive smoke
 
