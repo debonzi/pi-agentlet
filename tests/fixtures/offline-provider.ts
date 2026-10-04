@@ -23,6 +23,8 @@ export default function offlineProvider(pi: ExtensionAPI): void {
       if (delegated) {
         if (users.length !== 1 || JSON.stringify(users).includes("PARENT_PRIVATE_MARKER")) throw new Error("Conversation leaked into child.");
         if (!getCurrentTools(context.messages).some(tool => tool.name === "subagents")) throw new Error("Child subagents tool was removed.");
+        if (!JSON.stringify(users).includes("do not use the subagents tool")) throw new Error("Child delegation prohibition was omitted.");
+        if (pi.getActiveTools().some(name => ["write", "edit", "bash"].includes(name))) throw new Error("Inherited CLI tool exclusions were lost.");
         const nested = context.messages.findLast(message => message.role === "toolResult" && message.toolName === "codemode");
         if (profile === "cancel" || (profile === "timeout" && JSON.stringify(users).includes("WAIT_FOR_TIMEOUT"))) {
           const message: AssistantMessage = { role: "assistant", provider: model.provider, model: model.id, api: model.api,
@@ -40,7 +42,7 @@ export default function offlineProvider(pi: ExtensionAPI): void {
           else options?.signal?.addEventListener("abort", abort, { once: true });
           return stream;
         }
-        if ((profile === "codemode" || profile === "mcp") && !nested) {
+        if ((profile === "codemode" || profile === "tool-differences" || profile === "mcp") && !nested) {
           const toolNames = profile === "mcp" ? ["mcp__offline__echo"] : ["fixture_codemode", "fixture_deferred"];
           if (toolNames.some(name => pi.getActiveTools().includes(name))) throw new Error("Callable fixture unexpectedly declared.");
           content = [{ type: "toolCall", id: "fixture-nested", name: "codemode", arguments: {
@@ -56,11 +58,16 @@ export default function offlineProvider(pi: ExtensionAPI): void {
         const value = JSON.stringify(result.content);
         const completed = (value.match(/— completed/g) ?? []).length;
         const valid = profile === "virtual" ? completed === 0 && value.includes("does not support virtual models")
-          : profile === "mismatch" ? completed === 0 && (value.match(/Resource incompatibility/g) ?? []).length === 3
           : profile === "timeout" ? completed === 2 && value.includes("— timed_out") : completed === 3;
         if (!valid || value.includes("CHILD_PRIVATE_THINKING")) {
           content = [{ type: "text", text: `SMOKE_FAILED: ${value}` }];
         } else content = [{ type: "text", text: "SMOKE_OK" }];
+      } else if ((profile === "mcp" || profile === "cancel") && !context.messages.some(message => message.role === "toolResult" && message.toolName === "codemode")) {
+        // Warm the parent's MCP catalog through normal tool use before creating fresh children.
+        // Children must be free to begin while their own delayed MCP connections are pending.
+        content = [{ type: "toolCall", id: "fixture-warm-mcp", name: "codemode", arguments: {
+          code: 'text(await tools.mcp__offline__echo({}))',
+        } }];
       } else {
         content = [{ type: "toolCall", id: "fixture-delegate", name: "subagents", arguments: {
           tasks: (profile === "cancel" ? Array.from({ length: 6 }, (_, i) => `Waiting task ${i}`) : ["Review bugs", "Review tests", "Review errors"])

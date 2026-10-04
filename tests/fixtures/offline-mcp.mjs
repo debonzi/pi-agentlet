@@ -5,6 +5,7 @@ import { join } from "node:path";
 if (process.env.PI_AGENTLET_SMOKE_MCP_PIDS) {
   writeFileSync(join(process.env.PI_AGENTLET_SMOKE_MCP_PIDS, String(process.pid)), "", { mode: 0o600 });
 }
+const startupDelayMs = process.argv[2] === "--delay-ms" ? Number(process.argv[3]) : 0;
 let pending = "";
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", chunk => {
@@ -32,7 +33,9 @@ process.stdin.on("data", chunk => {
         process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, error: { code: -32601, message: "Unknown fixture method" } }) + "\n");
         continue;
     }
-    process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }) + "\n");
+    const reply = () => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }) + "\n");
+    if (request.method === "initialize" && startupDelayMs > 0) setTimeout(reply, startupDelayMs);
+    else reply();
   }
 });
 process.stdin.on("end", () => process.exit(0));

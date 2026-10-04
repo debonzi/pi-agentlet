@@ -33,7 +33,6 @@ export interface Expectation {
   cwd: string;
   modelHash: string;
   providerHash: string;
-  toolsHash: string;
   resourcesHash: string;
 }
 export interface RunOutcome {

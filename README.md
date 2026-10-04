@@ -14,7 +14,7 @@ pi-agentlet is for people who want **delegation, not an orchestration framework*
 
 - **One tool, three required fields per task.** No agent definitions, role files, or workflow configuration to maintain.
 - **Independent context.** Subagents do not receive the parent conversation. Their investigation stays out of it; only final answers and compact failure diagnostics come back.
-- **Your existing pi setup.** Children use the parent's model and thinking level, working directory, and applicable extensions, skills, instructions, and tool restrictions. Unsupported configuration fails explicitly instead of silently falling back.
+- **Your existing pi setup.** Children use the parent's model and thinking level, working directory, and applicable extensions, skills, and instructions. CLI tool-selection options are inherited without extra restrictions or tool-catalog equivalence checks. Unsupported non-tool configuration fails explicitly instead of silently falling back.
 - **Bounded parallel work.** Up to five children run at once. The main agent waits for the results while pi's interface remains responsive.
 - **No extra management interface.** Progress and results appear in the ordinary tool block. There is no background job registry or separate control panel.
 
@@ -24,11 +24,11 @@ It is a good fit for independent code reviews, test-coverage checks, and focused
 
 ### Requirements
 
-- **pi `>=0.86.0 <0.88.0` or `>=0.99.1 <0.100.0`** from `@earendil-works/pi-coding-agent`, installed through Node/npm.
+- **pi `>=0.86.0 <0.88.0`, `>=0.99.1 <0.100.0`, or `1.0.2`** from `@earendil-works/pi-coding-agent`, installed through Node/npm.
 - **Node.js 24+** and **Linux**.
 - A working pi model/provider configuration.
 
-Compatibility is intentionally bounded: pi versions outside these two ranges are rejected. Select a physical model; virtual models and their routing state are not supported. Native binary installations are not integration-tested. See [compatibility notes](docs/compatibility.md) for SDK, wrapper, and extension limitations.
+Compatibility is intentionally bounded: pi versions outside these reviewed releases are rejected. Select a physical model; virtual models and their routing state are not supported. Native binary installations are not integration-tested. See [compatibility notes](docs/compatibility.md) for SDK, wrapper, and extension limitations.
 
 ### From GitHub
 
@@ -146,11 +146,11 @@ A timeout affects only that child. `timeoutSeconds` can shorten or extend the de
 
 **Long answers are preserved.** If a final answer exceeds 8 KiB, the returned text includes a truncation notice and a path to the complete answer in a private `pi-agentlet-result-*` directory outside the repository. Artifacts contain only final answers and remain until you delete them or the OS cleans temporary files. Save important results elsewhere and review them before sharing. Child transcripts are not persisted by pi-agentlet; third-party extensions may have their own logging.
 
-**This is not a sandbox.** Children share your filesystem and inherit applicable tools, environment credentials, and project trust. Read-only directions are instructions, not access controls. Delegation does not grant extra permissions. Children are told not to delegate further, but `subagents` remains available to them; the concurrency limit is not a global recursion barrier.
+**This is not a sandbox.** Children share your filesystem and inherit environment credentials and project trust. The parent's CLI tool options (`--tools`, `--exclude-tools`, `--no-tools`, and `--no-builtin-tools`) are replayed, but pi-agentlet adds no tool restrictions and does not compare parent/child tool catalogs. Pi discovers and activates child tools normally; runtime-only tools or activations are not cloned. Read-only directions are instructions, not access controls. Delegation does not grant extra permissions. Every child is told not to use `subagents` or start other sessions to delegate; the extension does not technically disable the tool. The concurrency limit is not a global recursion barrier.
 
 **Smaller parent context does not mean lower cost.** Each child makes its own model requests. Reported usage is aggregated, but total tokens, cost, and latency may increase.
 
-**Resources are reloaded, not cloned from memory.** Extension startup side effects can repeat, including MCP connections on pi 0.99. Extensions requiring a TUI or human confirmation may not work in children. Keep resource configuration unchanged during delegation. pi-agentlet does not automatically approve prompts, install missing resources, or silently switch models to make a task run. See [compatibility notes](docs/compatibility.md) if your setup is unsupported.
+**Resources are reloaded, not cloned from memory.** Extension startup side effects can repeat, including MCP connections on pi 0.99 and 1.0.2. Tool availability belongs to pi; a fresh child is not rejected because its MCP tools are still connecting or its catalog differs from the parent's. Extensions requiring a TUI or human confirmation may not work in children. Keep resource configuration unchanged during delegation. pi-agentlet does not automatically approve prompts, install missing resources, or silently switch models to make a task run. See [compatibility notes](docs/compatibility.md) if your setup is unsupported.
 
 ## Development
 

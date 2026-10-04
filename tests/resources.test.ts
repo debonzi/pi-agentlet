@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Args, BuildSystemPromptOptions, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { buildInvocation, digest, executable, expectation, mismatch, supportsPiVersion, toolHash } from "../src/resources.ts";
+import { buildInvocation, digest, executable, expectation, mismatch, supportsPiVersion } from "../src/resources.ts";
 
 const SUPPORTED_VERSION = "0.87.0";
 
@@ -62,18 +62,18 @@ test("verification detects non-reproducible configuration without any fallback",
   assert.match(mismatch({ ...expected, thinking: "off" }, pi, ctx, options)!, /thinking/);
   assert.match(mismatch({ ...expected, providerHash: "runtime-only-registration" }, pi, ctx, options)!, /provider registration/);
   assert.match(mismatch({ ...expected, trusted: false }, pi, ctx, options)!, /trust/);
-  assert.match(mismatch({ ...expected, toolsHash: "changed" }, pi, ctx, options)!, /tools/);
+  assert.equal("toolsHash" in expected, false);
   assert.match(mismatch({ ...expected, resourcesHash: "changed" }, pi, ctx, options)!, /skills/);
   assert.throws(() => expectation(pi, ctx, options, "0.1.0"), /supports pi >=0\.86\.0 <0\.88\.0/);
   assert.throws(() => expectation(pi, { ...ctx, model: undefined }, options, SUPPORTED_VERSION), /model/);
   assert.throws(() => expectation(pi, ctx, { ...options, forceSystemPrompt: "private parent state" }, SUPPORTED_VERSION), /in-memory/);
   assert.throws(() => buildInvocation({ parsed: parsed({ apiKey: "secret" }), expected, agentDir: "/config", startupCwd: "/launch", exec: { command: "/pi", prefix: [] } }), /--api-key/);
 });
-test("pi compatibility accepts stable releases in the two reviewed windows only", () => {
-  for (const version of ["0.86.0", "0.86.2", "0.87.0", "0.87.999", "0.87.0+build.1", "0.99.1", "0.99.999", "0.99.1+build.1"]) {
+test("pi compatibility accepts the reviewed legacy windows and pi 1.0.2 only", () => {
+  for (const version of ["0.86.0", "0.86.2", "0.87.0", "0.87.999", "0.87.0+build.1", "0.99.1", "0.99.999", "0.99.1+build.1", "1.0.2", "1.0.2+build.1"]) {
     assert.equal(supportsPiVersion(version), true, version);
   }
-  for (const version of ["0.85.999", "0.88.0", "0.98.999", "0.99.0", "0.100.0", "1.0.0", "0.87.0-beta.1", "0.99.1-rc.1", "0.087.0", "0.099.1", "invalid"]) {
+  for (const version of ["0.85.999", "0.88.0", "0.98.999", "0.99.0", "0.100.0", "1.0.0", "1.0.1", "1.0.3", "1.1.0", "2.0.0", "0.87.0-beta.1", "0.99.1-rc.1", "1.0.2-rc.1", "0.087.0", "0.099.1", "invalid"]) {
     assert.equal(supportsPiVersion(version), false, version);
   }
 });
@@ -93,51 +93,48 @@ test("CLI reconstruction preserves builtin extension identifiers with explicit d
   const paths = invocation.args.flatMap((value, i) => value === "--extension" ? [invocation.args[i + 1]] : []);
   assert.deepEqual(paths.slice(0, 4), ["builtin:codemode", "builtin:tool-search", "builtin:mcp", "/launch/local.ts"]);
 });
-test("tool equivalence covers inactive callable tools, declaration state, exposure and metadata", () => {
+test("tool catalog differences do not participate in configuration verification", () => {
   const { pi, ctx, options } = host();
-  type Metadata = { name: string; description: string; parameters: object; promptGuidelines?: string[];
-    sourceInfo: { source: string }; exposure?: string; namespace?: { name: string; description?: string };
-    annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean } };
-  const base: Metadata = { name: "subagents", description: "delegate", parameters: {}, sourceInfo: { source: "local" } };
-  let tools: Metadata[] = [base];
-  let active = [base.name];
-  const current = { ...pi, getAllTools: () => tools, getActiveTools: () => active } as unknown as ExtensionAPI;
-  const original = toolHash(current);
-  tools = [{ ...base, exposure: "direct" }];
-  assert.equal(toolHash(current), original); // Legacy hosts omit exposure.
-  tools = [base, { ...base, name: "dormant", exposure: "direct" }, { ...base, name: "hidden", exposure: "hidden" }];
-  assert.equal(toolHash(current), original);
-  for (const exposure of ["codemode", "deferred"]) {
-    const callable = { ...base, name: "fixture_callable", exposure };
-    tools = [base, callable];
-    const expected = expectation(current, ctx, options, "0.99.1");
-    assert.notEqual(expected.toolsHash, original);
-    assert.equal(mismatch(expected, current, ctx, options), undefined);
-    for (const patch of [
-      { description: "changed" }, { parameters: { type: "string" } }, { promptGuidelines: ["Use fixture_callable safely."] },
-      { exposure: "hidden" }, { exposure: "direct" }, { exposure: "model-only" },
-      { namespace: { name: "fixture", description: "Local fixture" } }, { annotations: { readOnlyHint: true } },
-    ]) {
-      tools = [base, { ...callable, ...patch }];
-      assert.match(mismatch(expected, current, ctx, options)!, /active or callable tools/);
-    }
-    tools = [base, callable];
-    active = [base.name, callable.name];
-    assert.match(mismatch(expected, current, ctx, options)!, /tools/); // Callable and declared are distinct.
-    active = [base.name];
-    tools = [callable, base];
-    assert.equal(toolHash(current), expected.toolsHash); // Registration order does not affect equivalence.
+  const expected = expectation(pi, ctx, options, "1.0.2");
+  // A fresh child may have no MCP tools yet, different declarations/metadata,
+  // or runtime-only tools that cannot be reproduced. Pi owns their availability.
+  for (const tools of [[], [{ name: "child_only", exposure: "codemode", sourceInfo: { source: "sdk" } }],
+    [{ name: "subagents", description: "changed", parameters: { type: "string" }, exposure: "hidden",
+      promptGuidelines: ["Different guidelines"], namespace: { name: "child" }, annotations: { readOnlyHint: true } }]]) {
+    const child = { ...pi, getAllTools: () => tools, getActiveTools: () => [] } as unknown as ExtensionAPI;
+    assert.deepEqual(expectation(child, ctx, options, "1.0.2"), expected);
+    assert.equal(mismatch(expected, child, ctx, options), undefined);
   }
-  tools = [{ ...base, exposure: "model-only" }];
-  assert.notEqual(toolHash(current), original);
 });
-test("callable SDK tools are rejected even when not declared to the model", () => {
+test("configuration capture and verification never inspect tool availability", () => {
   const { pi, ctx, options } = host();
-  for (const exposure of ["codemode", "deferred"]) {
-    const current = { ...pi, getAllTools: () => [...pi.getAllTools(), {
-      name: "inline", description: "SDK-only", parameters: {}, exposure, sourceInfo: { source: "sdk" },
-    }] } as unknown as ExtensionAPI;
-    assert.throws(() => expectation(current, ctx, options, "0.99.1"), /inline SDK tools/);
+  const unchecked = { ...pi,
+    getAllTools() { throw new Error("Do not inspect the tool catalog."); },
+    getActiveTools() { throw new Error("Do not enforce a child tool selection."); },
+  } as unknown as ExtensionAPI;
+  const expected = expectation(unchecked, ctx, options, "1.0.2");
+  assert.equal(mismatch(expected, unchecked, ctx, options), undefined);
+});
+test("child CLI inherits tool selection flags without adding restrictions", () => {
+  const { pi, ctx, options } = host();
+  const expected = expectation(pi, ctx, options, "1.0.2");
+  for (const selection of [{}, { tools: ["read", "subagents"], excludeTools: ["write", "edit"] },
+    { noTools: true }, { noBuiltinTools: true }, { excludeTools: ["subagents"] }]) {
+    const invocation = buildInvocation({ parsed: parsed(selection), expected, agentDir: "/config", startupCwd: "/launch",
+      exec: { command: "/pi", prefix: [] } });
+    const policy: string[] = [];
+    for (let i = 0; i < invocation.args.length; i++) {
+      const flag = invocation.args[i]!;
+      if (["--tools", "--exclude-tools"].includes(flag)) policy.push(flag, invocation.args[++i]!);
+      else if (["--no-tools", "--no-builtin-tools"].includes(flag)) policy.push(flag);
+    }
+    const inherited = parsed(selection);
+    assert.deepEqual(policy, [
+      ...(inherited.noTools ? ["--no-tools"] : []),
+      ...(inherited.noBuiltinTools ? ["--no-builtin-tools"] : []),
+      ...(inherited.tools ? ["--tools", inherited.tools.join(",")] : []),
+      ...(inherited.excludeTools ? ["--exclude-tools", inherited.excludeTools.join(",")] : []),
+    ]);
   }
 });
 test("stable configuration hashes do not depend on object property order", () => {

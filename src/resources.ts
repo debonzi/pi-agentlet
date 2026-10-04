@@ -6,10 +6,11 @@ import type { Args, BuildSystemPromptOptions, ExtensionAPI, ExtensionContext } f
 import type { Expectation, Invocation } from "./types.ts";
 
 export const GUARD_PATH = fileURLToPath(new URL("./verify-child.ts", import.meta.url));
-export const SUPPORTED_PI_RANGE = ">=0.86.0 <0.88.0 || >=0.99.1 <0.100.0";
+export const SUPPORTED_PI_RANGE = ">=0.86.0 <0.88.0 || >=0.99.1 <0.100.0 || 1.0.2";
 const SUPPORTED_PI_WINDOWS = [
   [[0, 86, 0], [0, 88, 0]],
   [[0, 99, 1], [0, 100, 0]],
+  [[1, 0, 2], [1, 0, 3]],
 ] as const;
 
 type VersionTuple = readonly [number, number, number];
@@ -55,38 +56,16 @@ export function resourceHash(options: BuildSystemPromptOptions): string {
     contextFiles: options.contextFiles,
   });
 }
-type ToolMetadata = ReturnType<ExtensionAPI["getAllTools"]>[number] & {
-  // Pi 0.86/0.87 do not expose these fields; their tools use direct exposure.
-  exposure?: "direct" | "model-only" | "codemode" | "deferred" | "hidden";
-  namespace?: { name: string; description?: string };
-  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint?: boolean };
-};
-function availableTools(pi: Pick<ExtensionAPI, "getAllTools" | "getActiveTools">) {
-  const active = new Set(pi.getActiveTools());
-  return (pi.getAllTools() as ToolMetadata[]).map(tool => ({ tool, active: active.has(tool.name), exposure: tool.exposure ?? "direct" }))
-    .filter(({ active, exposure }) => exposure !== "hidden" && (active || exposure === "codemode" || exposure === "deferred"));
-}
-export function toolHash(pi: Pick<ExtensionAPI, "getAllTools" | "getActiveTools">): string {
-  // In pi 0.99, registered codemode/deferred tools remain callable while inactive.
-  return digest(availableTools(pi).map(({ tool: t, active, exposure }) => ({
-    name: t.name, active, exposure, description: t.description, parameters: t.parameters,
-    promptGuidelines: t.promptGuidelines, namespace: t.namespace, annotations: t.annotations,
-  })).sort((a, b) => a.name.localeCompare(b.name)));
-}
 
-export function expectation(pi: ExtensionAPI, ctx: ExtensionContext, options: BuildSystemPromptOptions, version: string): Expectation {
+export function expectation(pi: Pick<ExtensionAPI, "getThinkingLevel">, ctx: ExtensionContext, options: BuildSystemPromptOptions, version: string): Expectation {
   if (!supportsPiVersion(version)) throw new Error(`subagents supports pi ${SUPPORTED_PI_RANGE}; installed version is ${version}. Review resource/lifecycle APIs before expanding compatibility.`);
   if (!ctx.model) throw new Error("subagents requires an explicitly resolved parent model.");
   if (ctx.model.api === "pi-virtual") throw new Error("subagents does not support virtual models. Select a physical model; routing policy and state cannot be reconstructed.");
   if (options.forceSystemPrompt) throw new Error("subagents cannot reconstruct an in-memory forced system prompt. Put reusable instructions in normal resources.");
-  if (!pi.getActiveTools().includes("subagents")) throw new Error("subagents must remain available in the child tool selection.");
-  if (availableTools(pi).some(({ tool }) => tool.sourceInfo.source === "sdk")) {
-    throw new Error("subagents cannot reconstruct inline SDK tools. Load them through a file-backed extension.");
-  }
   return {
     version, provider: ctx.model.provider, model: ctx.model.id,
     thinking: ctx.thinkingLevel ?? pi.getThinkingLevel(), trusted: ctx.isProjectTrusted(), cwd: ctx.cwd,
-    modelHash: digest(ctx.model), providerHash: providerHash(ctx), toolsHash: toolHash(pi), resourcesHash: resourceHash(options),
+    modelHash: digest(ctx.model), providerHash: providerHash(ctx), resourcesHash: resourceHash(options),
   };
 }
 
@@ -132,7 +111,8 @@ export function buildInvocation(input: {
   ] as const) for (const path of paths ?? []) {
     if (resolve(input.startupCwd, path) !== GUARD_PATH) args.push(flag, pathArg(path));
   }
-  // These flags reproduce the parent's explicit selection, never simplify the child's resources.
+  // Replay the parent's tool/resource policy without adding delegation-specific restrictions.
+  // Pi owns tool discovery and activation; do not inspect or enforce catalog equivalence.
   for (const [flag, enabled] of [
     ["--no-extensions", p.noExtensions], ["--no-skills", p.noSkills], ["--no-prompt-templates", p.noPromptTemplates],
     ["--no-themes", p.noThemes], ["--no-context-files", p.noContextFiles], ["--no-tools", p.noTools],
@@ -156,12 +136,11 @@ export function buildInvocation(input: {
   return { command: input.exec.command, args, cwd: e.cwd, env, expectation: e };
 }
 
-export function mismatch(e: Expectation, pi: ExtensionAPI, ctx: ExtensionContext, options: BuildSystemPromptOptions): string | undefined {
+export function mismatch(e: Expectation, pi: Pick<ExtensionAPI, "getThinkingLevel">, ctx: ExtensionContext, options: BuildSystemPromptOptions): string | undefined {
   if (ctx.cwd !== e.cwd || ctx.isProjectTrusted() !== e.trusted) return "cwd or project trust";
   if (ctx.model?.provider !== e.provider || ctx.model?.id !== e.model || digest(ctx.model) !== e.modelHash) return "model/provider configuration";
   if (providerHash(ctx) !== e.providerHash) return "provider registration configuration";
   if ((ctx.thinkingLevel ?? pi.getThinkingLevel()) !== e.thinking) return "thinking level";
-  if (toolHash(pi) !== e.toolsHash) return "active or callable tools (including exposure and metadata)";
   if (resourceHash(options) !== e.resourcesHash) return "skills, context files, or prompt configuration";
   return undefined;
 }

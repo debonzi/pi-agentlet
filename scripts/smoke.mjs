@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
+import { supportsPiVersion } from "../src/resources.ts";
 
 // Explicit opt-in: a real local pi CLI, isolated configuration, and deterministic offline fixtures.
 const cli = process.env.PI_AGENTLET_CLI;
@@ -22,11 +23,12 @@ try {
   await writeFile(join(skill, "SKILL.md"), "---\nname: smoke-review\ndescription: Review local fixtures\n---\nOnly inspect supplied fixtures.\n");
   const hostRoot = dirname(cli).endsWith("/bundle") ? resolve(dirname(cli), "../..") : resolve(dirname(cli), "..");
   const { version } = JSON.parse(await readFile(join(hostRoot, "package.json"), "utf8"));
-  const modern = /^0\.99\./.test(version);
+  assert.ok(supportsPiVersion(version), `Unreviewed pi version: ${version}.`);
+  const modern = /^0\.99\./.test(version) || version.split("+")[0] === "1.0.2";
   const run = async (profile, { tools = false, mcp = false } = {}) => {
     await writeFile(join(cwd, ".pi/settings.json"), JSON.stringify({ defaultTools: ["read", ...(tools ? ["codemode"] : [])] }));
     await writeFile(join(config, "mcp.json"), JSON.stringify({ mcpServers: mcp ? {
-      offline: { command: process.execPath, args: [fixture("offline-mcp.mjs")], exposure: "codemode" },
+      offline: { command: process.execPath, args: [fixture("offline-mcp.mjs"), "--delay-ms", "300"], exposure: "codemode" },
     } : {} }));
     const args = [resolve(cli), "--offline", "--mode", "json", "--print", "--no-session", "--approve",
       "--no-extensions", "-e", fixture("offline-provider.ts"), "-e", repo,
@@ -62,7 +64,7 @@ try {
       else {
         const finals = events.filter(event => event.type === "message_end" && event.message.role === "assistant");
         assert.equal(finals.at(-1)?.message.content[0]?.text, "SMOKE_OK", JSON.stringify(finals.at(-1)) + "\n" + stderr);
-        if (profile === "codemode") {
+        if (profile === "codemode" || profile === "tool-differences") {
           const result = events.find(event => event.type === "message_end" && event.message.role === "toolResult" && event.message.toolName === "subagents");
           assert.equal(result.message.usage.totalTokens, 30); // Three children: two responses (4) plus nested tools (6).
         }
@@ -96,7 +98,7 @@ try {
   await run("timeout");
   if (modern) {
     await run("codemode", { tools: true });
-    await run("mismatch", { tools: true });
+    await run("tool-differences", { tools: true });
     await run("virtual");
     await run("mcp", { tools: true, mcp: true });
     await run("cancel", { tools: true, mcp: true });

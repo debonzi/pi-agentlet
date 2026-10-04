@@ -189,8 +189,8 @@ test("host registration, headless execution, compact updates, errors and lifecyc
   const pi = {
     on: (name: string, handler: (...args: any[]) => any) => { handlers.set(name, handler); },
     registerTool: (definition: typeof tool) => { tool = definition; starts++; },
-    getActiveTools: () => ["subagents"],
-    getAllTools: () => [{ name: "subagents", description: "delegate", parameters: {}, sourceInfo: { source: "local" } }],
+    getActiveTools() { throw new Error("Delegation must not inspect active tools."); },
+    getAllTools() { throw new Error("Delegation must not inspect the tool catalog."); },
     getThinkingLevel: () => "high",
   } as unknown as ExtensionAPI;
   extension(pi);

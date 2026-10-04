@@ -13,7 +13,7 @@ This is the maintained design reference for pi-agentlet. The [functional specifi
 | `src/protocol.ts` | Incremental bounded JSONL framing, authoritative final-answer extraction, protocol validation, and event interpretation. |
 | `src/process-tree.ts` | Linux process-group/descendant tracking and graceful/forced termination. |
 | `src/resources.ts` | Resolves the reviewed executable, reconstructs CLI/environment configuration, and builds resource expectations. |
-| `src/verify-child.ts` | Checks effective child configuration before work and detects supported configuration mismatches. |
+| `src/verify-child.ts` | Checks effective non-tool child configuration before work; does not inspect tool catalogs. |
 | `src/results.ts` | Final-only result formatting, UTF-8 answer caps, and private full-answer artifacts. |
 | `src/usage.ts` | Reported usage aggregation helpers. |
 | `src/ui.ts` | Ordinary tool-block rendering, compact and expanded, and disposable running-task animation. |
@@ -37,15 +37,17 @@ Each child is a normal pi session in a separate process, with independent contex
 
 Invoke the verified installed CLI with `spawn`, `shell: false`, task data on stdin, JSON/print output, and ephemeral session storage. Do not interpolate tasks into shell commands, copy `process.argv` blindly, reuse parent sessions, or copy the parent's complete prompt/history. Continuation flags and parent prompts are not configuration to inherit.
 
-### Equivalent resources, not serialized runtime state
+### Configuration reconstruction, not tool catalog equivalence
 
-Use public host APIs and standard discovery/CLI selections to reconstruct applicable resources and verify observable effective configuration. Keep this adapter separate from scheduling and protocol handling because compatibility is host-version-specific.
+Use public host APIs and standard discovery/CLI selections to reconstruct applicable resources and verify observable non-tool configuration. Keep this adapter separate from scheduling and protocol handling because compatibility is host-version-specific.
 
-The contract is resource/configuration equivalence, not shared extension memory or a clone of every closure and connection. The adapter supports two reviewed host windows (`>=0.86.0 <0.88.0` and `>=0.99.1 <0.100.0`), without admitting intervening versions. Virtual model selections fail explicitly: preserving a selection alone cannot establish the physical model or router policy/state. Pi 0.99 separates declared tools from callable ones, so equivalence checks include inactive `codemode`/`deferred` tools, declaration state, exposure, namespace, and annotations; older hosts are treated as direct-exposure hosts. Built-in extension identifiers are replayed verbatim. File-backed extensions can reconstruct dynamic providers and tools; required runtime-only configurations that cannot be reproduced must fail explicitly. Do not work around API gaps by downgrading models, removing extensions/skills, choosing a fixed read-only tool list, copying history, approving trust, or installing resources. A central API blocker must be discussed rather than silently replacing the requirement. See [compatibility notes](compatibility.md) for current limits and future API opportunities.
+The adapter supports the reviewed host windows `>=0.86.0 <0.88.0` and `>=0.99.1 <0.100.0`, plus the reviewed stable release `1.0.2`; intervening and other unreviewed releases remain rejected. Virtual model selections fail explicitly: preserving a selection alone cannot establish the physical model or router policy/state. Built-in extension identifiers are replayed verbatim. File-backed extensions can reconstruct dynamic providers; required runtime-only non-tool configurations that cannot be reproduced must fail explicitly. Do not work around API gaps by downgrading models, removing extensions/skills, copying history, approving trust, or installing resources. See [compatibility notes](compatibility.md) for current limits and future API opportunities.
+
+For tools, the approved contract is non-interference rather than equivalence. Replay explicit parent CLI tool options, but do not synthesize allowlists/exclusions, inspect tool catalogs, reject SDK-origin tools, enforce `subagents` membership, or wait for tool readiness. Pi and the child's resources own discovery and activation. Runtime-only tools or selections are not cloned, and parent/child catalogs may differ. This avoids treating pi 0.99.2+/1.0.2 background MCP connections as configuration mismatches without adding a readiness framework or weakening model/resource/trust verification.
 
 ### Instruction-only prohibition on further delegation
 
-Children receive explicit instructions not to delegate further, but retain `subagents`. Disabling, hiding, or rejecting the tool based on a child marker would violate the normal-resource contract. Consequently, the five-child limit is per instance, not a global recursion or OS-process safeguard.
+Every child receives explicit instructions not to use `subagents`, delegate further, or start other sessions to delegate. The extension never disables or hides `subagents` based on a child marker; availability follows the inherited CLI policy and normal pi discovery, without a membership check. Consequently, the five-child limit is per instance, not a global recursion or OS-process safeguard.
 
 Likewise, task scope and read-only directions do not sandbox general-purpose shell tools. Delegation cannot enlarge the user's authorization, including for remote targets. Repository development instructions are not a substitute for the automatic child prompt.
 

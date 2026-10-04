@@ -4,7 +4,7 @@ import { VERSION } from "@earendil-works/pi-coding-agent";
 import { digest, mismatch } from "./resources.ts";
 import type { Expectation } from "./types.ts";
 
-/** Private startup check. It never removes tools or prevents subdelegation. */
+/** Private non-tool configuration check. Tool availability belongs to pi, not this verifier. */
 export default function verifyChild(pi: ExtensionAPI): void {
   if (process.env.PI_AGENTLET_VERIFY !== "1") return;
   delete process.env.PI_AGENTLET_VERIFY;
