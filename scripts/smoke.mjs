@@ -24,7 +24,7 @@ try {
   const hostRoot = dirname(cli).endsWith("/bundle") ? resolve(dirname(cli), "../..") : resolve(dirname(cli), "..");
   const { version } = JSON.parse(await readFile(join(hostRoot, "package.json"), "utf8"));
   assert.ok(supportsPiVersion(version), `Unreviewed pi version: ${version}.`);
-  const modern = /^0\.99\./.test(version) || version.split("+")[0] === "1.0.2";
+  const modern = /^(?:0\.99|1\.0)\./.test(version);
   const run = async (profile, { tools = false, mcp = false } = {}) => {
     await writeFile(join(cwd, ".pi/settings.json"), JSON.stringify({ defaultTools: ["read", ...(tools ? ["codemode"] : [])] }));
     await writeFile(join(config, "mcp.json"), JSON.stringify({ mcpServers: mcp ? {

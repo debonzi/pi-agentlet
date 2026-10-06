@@ -38,14 +38,14 @@ Set the same variables when running `npm run check` without local dependencies. 
 
 ## Real-pi offline smoke
 
-An opt-in integration smoke uses an isolated temporary configuration and a deterministic in-process fake provider. On pi 0.99 and 1.0.2 it also uses file-backed callable tools and a local stdio MCP fixture with no external dependencies. It makes no network or paid-model calls and deletes its fixture configuration afterward:
+An opt-in integration smoke uses an isolated temporary configuration and a deterministic in-process fake provider. On supported pi 0.99 and 1.0 releases it also uses file-backed callable tools and a local stdio MCP fixture with no external dependencies. It makes no network or paid-model calls and deletes its fixture configuration afterward:
 
 ```sh
 PI_AGENTLET_CLI=/absolute/path/to/pi-coding-agent/dist/bundle/cli.js \
   node scripts/smoke.mjs
 ```
 
-The shipped `dist/cli.js` entry point is also supported. With a reviewed pi host on Node 24+ and Linux, the smoke exercises a parent delegation to three children, independent contexts, normal child tool loading without disabling `subagents`, the explicit no-further-delegation instruction, inherited CLI tool exclusions, non-tool configuration verification, timeout isolation, and valid JSON stdout. On pi 0.99 and 1.0.2 it additionally checks explicit `builtin:` selections with discovery disabled, inactive callable tools through real codemode, nested usage, acceptance of child-only tools and differing schemas/exposure/metadata, virtual-model rejection, and local MCP startup/cleanup. The MCP/cancellation profiles first warm the parent's MCP catalog and then create fresh children with delayed MCP initialization, including shutdown cancellation of five running tasks and one queued task. The smoke rejects unreviewed hosts rather than skipping version-specific coverage. It does not validate interactive behavior or a paid provider. See [compatibility evidence](compatibility.md#validation).
+The shipped `dist/cli.js` entry point is also supported. With a reviewed pi host on Node 24+ and Linux, the smoke exercises a parent delegation to three children, independent contexts, normal child tool loading without disabling `subagents`, the explicit no-further-delegation instruction, inherited CLI tool exclusions, non-tool configuration verification, timeout isolation, and valid JSON stdout. On supported pi 0.99 and 1.0 releases it additionally checks explicit `builtin:` selections with discovery disabled, inactive callable tools through real codemode, nested usage, acceptance of child-only tools and differing schemas/exposure/metadata, virtual-model rejection, and local MCP startup/cleanup. The MCP/cancellation profiles first warm the parent's MCP catalog and then create fresh children with delayed MCP initialization, including shutdown cancellation of five running tasks and one queued task. The smoke rejects hosts outside the supported ranges rather than skipping version-specific coverage. It does not validate interactive behavior or a paid provider. See [compatibility evidence](compatibility.md#validation).
 
 ## Manual interactive smoke
 

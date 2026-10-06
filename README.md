@@ -24,11 +24,11 @@ It is a good fit for independent code reviews, test-coverage checks, and focused
 
 ### Requirements
 
-- **pi `>=0.86.0 <0.88.0`, `>=0.99.1 <0.100.0`, or `1.0.2`** from `@earendil-works/pi-coding-agent`, installed through Node/npm.
+- **pi `>=0.86.0 <0.88.0`, `>=0.99.1 <0.100.0`, or `>=1.0.2 <1.1.0`** from `@earendil-works/pi-coding-agent`, installed through Node/npm.
 - **Node.js 24+** and **Linux**.
 - A working pi model/provider configuration.
 
-Compatibility is intentionally bounded: pi versions outside these reviewed releases are rejected. Select a physical model; virtual models and their routing state are not supported. Native binary installations are not integration-tested. See [compatibility notes](docs/compatibility.md) for SDK, wrapper, and extension limitations.
+Compatibility is intentionally bounded: pi versions outside these supported ranges are rejected. Select a physical model; virtual models and their routing state are not supported. Native binary installations are not integration-tested. See [compatibility notes](docs/compatibility.md) for SDK, wrapper, and extension limitations.
 
 ### From GitHub
 

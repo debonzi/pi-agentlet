@@ -69,11 +69,11 @@ test("verification detects non-reproducible configuration without any fallback",
   assert.throws(() => expectation(pi, ctx, { ...options, forceSystemPrompt: "private parent state" }, SUPPORTED_VERSION), /in-memory/);
   assert.throws(() => buildInvocation({ parsed: parsed({ apiKey: "secret" }), expected, agentDir: "/config", startupCwd: "/launch", exec: { command: "/pi", prefix: [] } }), /--api-key/);
 });
-test("pi compatibility accepts the reviewed legacy windows and pi 1.0.2 only", () => {
-  for (const version of ["0.86.0", "0.86.2", "0.87.0", "0.87.999", "0.87.0+build.1", "0.99.1", "0.99.999", "0.99.1+build.1", "1.0.2", "1.0.2+build.1"]) {
+test("pi compatibility accepts the legacy windows and stable pi >=1.0.2 <1.1.0", () => {
+  for (const version of ["0.86.0", "0.86.2", "0.87.0", "0.87.999", "0.87.0+build.1", "0.99.1", "0.99.999", "0.99.1+build.1", "1.0.2", "1.0.2+build.1", "1.0.3", "1.0.4", "1.0.999", "1.0.999+build.1"]) {
     assert.equal(supportsPiVersion(version), true, version);
   }
-  for (const version of ["0.85.999", "0.88.0", "0.98.999", "0.99.0", "0.100.0", "1.0.0", "1.0.1", "1.0.3", "1.1.0", "2.0.0", "0.87.0-beta.1", "0.99.1-rc.1", "1.0.2-rc.1", "0.087.0", "0.099.1", "invalid"]) {
+  for (const version of ["0.85.999", "0.88.0", "0.98.999", "0.99.0", "0.100.0", "1.0.0", "1.0.1", "1.1.0", "1.1.0+build.1", "1.1.1", "2.0.0", "0.87.0-beta.1", "0.99.1-rc.1", "1.0.2-rc.1", "1.0.4-rc.1", "1.1.0-rc.1", "0.087.0", "0.099.1", "1.00.4", "invalid"]) {
     assert.equal(supportsPiVersion(version), false, version);
   }
 });
