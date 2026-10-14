@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
-/** File-backed callable tools for the modern pi offline smoke; no model or network calls. */
+/** File-backed callable tools for the pi offline smoke; no model or network calls. */
 export default function offlineTools(pi: ExtensionAPI): void {
   // The verifier consumes its environment marker during extension loading.
   const child = process.argv.some(arg => arg.endsWith("/src/verify-child.ts"));

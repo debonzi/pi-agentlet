@@ -48,7 +48,7 @@ export function runChild(invocation: Invocation, task: Task, signal: AbortSignal
         if (exitSignal) { state = "failed"; diagnostic = `Child terminated by ${exitSignal}.`; }
         else if (code !== 0) { state = "failed"; diagnostic ??= `Child exited with code ${code ?? "unknown"}; no valid final answer.`; }
         else if (!verified) { state = "failed"; diagnostic = "Child did not verify resource equivalence; no provider result accepted."; }
-        else if (!transcript.ended || !transcript.answer) { state = "failed"; diagnostic = transcript.diagnostic ?? "Child exited without a valid final assistant response."; }
+        else if (!transcript.ended || !transcript.settled || !transcript.answer) { state = "failed"; diagnostic = transcript.diagnostic ?? "Child exited without a valid final assistant response."; }
         else state = "completed";
       }
       resolve({ state, diagnostic, answer: state === "completed" ? transcript.answer : undefined, usage: transcript.usage });

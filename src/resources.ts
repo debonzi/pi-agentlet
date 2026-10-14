@@ -6,11 +6,9 @@ import type { Args, BuildSystemPromptOptions, ExtensionAPI, ExtensionContext } f
 import type { Expectation, Invocation } from "./types.ts";
 
 export const GUARD_PATH = fileURLToPath(new URL("./verify-child.ts", import.meta.url));
-export const SUPPORTED_PI_RANGE = ">=0.86.0 <0.88.0 || >=0.99.1 <0.100.0 || >=1.0.2 <1.1.0";
+export const SUPPORTED_PI_RANGE = ">=1.2.0 <1.3.0";
 const SUPPORTED_PI_WINDOWS = [
-  [[0, 86, 0], [0, 88, 0]],
-  [[0, 99, 1], [0, 100, 0]],
-  [[1, 0, 2], [1, 1, 0]],
+  [[1, 2, 0], [1, 3, 0]],
 ] as const;
 
 type VersionTuple = readonly [number, number, number];
@@ -114,7 +112,7 @@ export function buildInvocation(input: {
   // Replay the parent's tool/resource policy without adding delegation-specific restrictions.
   // Pi owns tool discovery and activation; do not inspect or enforce catalog equivalence.
   for (const [flag, enabled] of [
-    ["--no-extensions", p.noExtensions], ["--no-skills", p.noSkills], ["--no-prompt-templates", p.noPromptTemplates],
+    ["--no-extensions", p.noExtensions], ["--no-mcp", p.noMcp], ["--no-skills", p.noSkills], ["--no-prompt-templates", p.noPromptTemplates],
     ["--no-themes", p.noThemes], ["--no-context-files", p.noContextFiles], ["--no-tools", p.noTools],
     ["--no-builtin-tools", p.noBuiltinTools],
   ] as const) if (enabled) args.push(flag);

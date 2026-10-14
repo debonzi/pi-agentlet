@@ -70,6 +70,32 @@ test("ancillary reported usage is counted once, not through duplicate completion
   t.accept({ type: "auto_retry_start" });
   assert.equal(t.answer, undefined);
 });
+test("settlement must follow agent_end, must not be aborted, and resets across continuations", () => {
+  const t = new Transcript(() => {});
+  t.accept({ type: "message_end", message: assistant("valid") });
+  t.accept({ type: "agent_settled", aborted: false });
+  assert.equal(t.settled, false);
+  t.accept({ type: "agent_end", willRetry: true });
+  t.accept({ type: "agent_settled", aborted: false });
+  assert.equal(t.settled, false);
+  t.accept({ type: "agent_end", willRetry: false });
+  assert.equal(t.settled, false);
+  t.accept({ type: "agent_settled", aborted: false });
+  assert.equal(t.settled, true);
+  t.accept({ type: "agent_start" });
+  assert.equal(t.settled, false);
+  assert.equal(t.answer, undefined);
+  t.accept({ type: "message_end", message: assistant("later") });
+  t.accept({ type: "agent_end", willRetry: false });
+  t.accept({ type: "agent_settled", aborted: true });
+  assert.equal(t.settled, false);
+  assert.equal(t.answer, undefined);
+  assert.match(t.diagnostic!, /aborted run at settlement/);
+  assert.equal(t.usage?.totalTokens, 6);
+  for (const aborted of [undefined, "false", null]) {
+    assert.throws(() => t.accept({ type: "agent_settled", aborted }), /settlement/);
+  }
+});
 test("UTF-8 truncation never splits code points; terminal text cannot inject controls", () => {
   for (let bytes = 0; bytes < 30; bytes++) {
     const result = utf8Head("😀éab".repeat(20), bytes);

@@ -29,7 +29,7 @@ test("child prompt is fresh, self-contained and explicitly prohibits subdelegati
   assert.doesNotMatch(result.answer!, /PARENT_CONVERSATION|session file|parentSession/);
 });
 test("process, provider and protocol failures cannot be masked by text", async t => {
-  for (const mode of ["invalid", "bad-utf8", "empty", "provider-error", "length", "aborted", "partial-error", "tool-only", "nonzero", "signal"]) {
+  for (const mode of ["invalid", "bad-utf8", "empty", "provider-error", "length", "aborted", "partial-error", "tool-only", "nonzero", "signal", "unsettled", "settled-abort"]) {
     await t.test(mode, async () => {
       const result = await run(mode);
       assert.equal(result.state, "failed");

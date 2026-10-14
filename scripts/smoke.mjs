@@ -23,8 +23,7 @@ try {
   await writeFile(join(skill, "SKILL.md"), "---\nname: smoke-review\ndescription: Review local fixtures\n---\nOnly inspect supplied fixtures.\n");
   const hostRoot = dirname(cli).endsWith("/bundle") ? resolve(dirname(cli), "../..") : resolve(dirname(cli), "..");
   const { version } = JSON.parse(await readFile(join(hostRoot, "package.json"), "utf8"));
-  assert.ok(supportsPiVersion(version), `Unreviewed pi version: ${version}.`);
-  const modern = /^(?:0\.99|1\.0)\./.test(version);
+  assert.ok(supportsPiVersion(version), `Unsupported pi version: ${version}.`);
   const run = async (profile, { tools = false, mcp = false } = {}) => {
     await writeFile(join(cwd, ".pi/settings.json"), JSON.stringify({ defaultTools: ["read", ...(tools ? ["codemode"] : [])] }));
     await writeFile(join(config, "mcp.json"), JSON.stringify({ mcpServers: mcp ? {
@@ -36,6 +35,8 @@ try {
       "--provider", "agentlet-fixture", "--model", profile === "virtual" ? "virtual-fixture" : "fixture", "--thinking", "off", "--agentlet-smoke-profile", profile];
     if (tools) args.push("-e", "builtin:codemode", "-e", "builtin:tool-search", "-e", fixture("offline-tools.ts"));
     if (mcp) args.push("-e", "builtin:mcp");
+    if (profile === "no-mcp") args.push("--no-mcp");
+    if (profile === "tool-deltas") args.push("--tools", "+tool_search,-read,-write,-edit,-bash");
     if (profile === "virtual") args.push("-e", fixture("offline-virtual.ts"));
     const child = spawn(process.execPath, args, {
       cwd, env: { PATH: process.env.PATH, HOME: root, PI_CODING_AGENT_DIR: config, PI_OFFLINE: "1", PI_TELEMETRY: "0",
@@ -44,7 +45,7 @@ try {
     let stdout = "", stderr = "", cancelled = false;
     child.stdout.on("data", chunk => { stdout += chunk; });
     child.stderr.on("data", chunk => { stderr += chunk; });
-    child.stdin.end("PARENT_PRIVATE_MARKER: run the offline delegation fixture.");
+    child.stdin.end(profile === "custom-start" ? "/agentlet-smoke-custom" : "PARENT_PRIVATE_MARKER: run the offline delegation fixture.");
     let force;
     const stop = () => {
       child.kill("SIGTERM");
@@ -62,6 +63,7 @@ try {
       assert.ok(!stdout.includes("CHILD_PRIVATE_THINKING"));
       if (profile === "cancel") assert.ok(cancelled, "Cancellation must occur with live children and a queued task.");
       else {
+        assert.ok(events.some(event => event.type === "agent_settled" && event.aborted === false), "Parent run must settle normally.");
         const finals = events.filter(event => event.type === "message_end" && event.message.role === "assistant");
         assert.equal(finals.at(-1)?.message.content[0]?.text, "SMOKE_OK", JSON.stringify(finals.at(-1)) + "\n" + stderr);
         if (profile === "codemode" || profile === "tool-differences") {
@@ -70,7 +72,7 @@ try {
         }
       }
       const servers = await readdir(pids), sessions = await readdir(piPids);
-      if (mcp) assert.equal(servers.length, profile === "cancel" ? 6 : 4);
+      assert.equal(servers.length, profile === "no-mcp" || !mcp ? 0 : profile === "cancel" ? 6 : 4);
       assert.equal(sessions.length, profile === "virtual" ? 1 : profile === "cancel" ? 6 : 4);
       for (const pid of [...servers, ...sessions]) {
         await assert.rejects(readFile(`/proc/${pid}/cmdline`), { code: "ENOENT" }, `Fixture process ${pid} survived teardown.`);
@@ -96,11 +98,14 @@ try {
   };
   await run("basic");
   await run("timeout");
-  if (modern) {
-    await run("codemode", { tools: true });
-    await run("tool-differences", { tools: true });
-    await run("virtual");
-    await run("mcp", { tools: true, mcp: true });
-    await run("cancel", { tools: true, mcp: true });
-  }
+  await run("codemode", { tools: true });
+  await run("tool-differences", { tools: true });
+  await run("virtual");
+  await run("mcp", { tools: true, mcp: true });
+  await run("cancel", { tools: true, mcp: true });
+  await run("no-mcp", { mcp: true });
+  await run("tool-deltas", { tools: true });
+  await run("custom-start");
+  await run("length");
+  await run("settled-abort");
 } finally { await rm(root, { recursive: true, force: true }); }

@@ -34,18 +34,29 @@ PI_AGENTLET_HOST=/absolute/path/to/@earendil-works/pi-coding-agent \
   npm run typecheck
 ```
 
-Set the same variables when running `npm run check` without local dependencies. See the [acceptance checklist](functional-spec.md#shared-filesystem-and-acceptance) for required regression coverage.
+Set the same variables when running `npm run check` without local dependencies. The host toolchain resolver accepts nested and hoisted peer dependencies, including the managed installer's flat `node_modules` layout. See the [acceptance checklist](functional-spec.md#shared-filesystem-and-acceptance) for required regression coverage.
 
 ## Real-pi offline smoke
 
-An opt-in integration smoke uses an isolated temporary configuration and a deterministic in-process fake provider. On supported pi 0.99 and 1.0 releases it also uses file-backed callable tools and a local stdio MCP fixture with no external dependencies. It makes no network or paid-model calls and deletes its fixture configuration afterward:
+An opt-in integration smoke uses an isolated temporary configuration and a deterministic in-process fake provider. On the validated pi 1.2.0 release it also uses file-backed callable tools and a local stdio MCP fixture with no external dependencies. It makes no network or paid-model calls and deletes its fixture configuration afterward:
 
 ```sh
 PI_AGENTLET_CLI=/absolute/path/to/pi-coding-agent/dist/bundle/cli.js \
   node scripts/smoke.mjs
 ```
 
-The shipped `dist/cli.js` entry point is also supported. With a reviewed pi host on Node 24+ and Linux, the smoke exercises a parent delegation to three children, independent contexts, normal child tool loading without disabling `subagents`, the explicit no-further-delegation instruction, inherited CLI tool exclusions, non-tool configuration verification, timeout isolation, and valid JSON stdout. On supported pi 0.99 and 1.0 releases it additionally checks explicit `builtin:` selections with discovery disabled, inactive callable tools through real codemode, nested usage, acceptance of child-only tools and differing schemas/exposure/metadata, virtual-model rejection, and local MCP startup/cleanup. The MCP/cancellation profiles first warm the parent's MCP catalog and then create fresh children with delayed MCP initialization, including shutdown cancellation of five running tasks and one queued task. The smoke rejects hosts outside the supported ranges rather than skipping version-specific coverage. It does not validate interactive behavior or a paid provider. See [compatibility evidence](compatibility.md#validation).
+The shipped `dist/cli.js` entry point is also supported. With an allowed stable pi 1.2.x host on Node 24+ and Linux (only 1.2.0 has been validated), the smoke exercises a parent delegation to three children, independent contexts, normal child tool loading without disabling `subagents`, the explicit no-further-delegation instruction, inherited CLI tool exclusions, non-tool configuration verification, timeout isolation, and valid JSON stdout. All profiles run unconditionally after the version gate: explicit `builtin:` selections with discovery disabled, inactive callable tools through real codemode, nested usage, acceptance of child-only tools and differing schemas/exposure/metadata, virtual-model rejection, local MCP startup/cleanup, `--no-mcp` with a configured server, additive CLI tool selections, custom-message-triggered starts, length-limited responses, and abort at settlement. The MCP/cancellation profiles first warm the parent's MCP catalog and then create fresh children with delayed MCP initialization, including shutdown cancellation of five running tasks and one queued task. The smoke rejects hosts outside the supported ranges rather than skipping version-specific coverage. It does not validate interactive behavior or a paid provider. See [compatibility evidence](compatibility.md#validation).
+
+## Isolated offline PTY smoke
+
+With an existing Python 3 standard library, Node 24+, and Linux PTY support:
+
+```sh
+PI_AGENTLET_CLI=/absolute/path/to/pi-coding-agent/dist/bundle/cli.js \
+  python3 scripts/smoke-pty.py
+```
+
+Repeat with `dist/cli.js` to cover the unbundled layout. The script uses temporary HOME/config/project directories, the offline provider, and only the local stdio MCP fixture. It checks regular/fullscreen completion, normal tool expansion, a 48-column/10-row resize with aggregate progress, Escape with five running children and one queued task, non-aborted/aborted settlement, reload, new session, and orderly quit. The parent's own MCP connection correctly remains alive after cancelling delegated tasks; all fixture processes must be gone after quit. Lifecycle logs contain only PID/event/reason/abort metadata and are deleted with the fixture directory. This is behavioral PTY evidence, not a pixel-perfect rendering, scrollback, mouse, or real-terminal protocol test.
 
 ## Manual interactive smoke
 
@@ -55,7 +66,7 @@ Run only with authorization to use the configured provider and resources:
 2. Ask it to run two independent read-only reviews against real local files, as in the [README example](../README.md#use-it).
 3. Check that the ordinary tool block updates while the parent waits: compact and expanded views have stable per-task state/activity rows when they fit, while expanded view also shows static task instructions; both use the aggregate fallback in a short terminal. Verify narrow widths, then make the expanded block taller than the terminal and confirm animation does not flicker, clear scrollback, or prevent scroll-up. Only final findings should return, and animation should stop on completion or cancellation without changing the editor/footer.
 4. Start six bounded tasks; verify that five run while one queues. Press Escape; verify that running and queued tasks cancel.
-5. Repeat with explicit local `-e`, `--skill`, tool exclusions, and temporary project trust. Check inherited CLI selection policy without catalog equivalence enforcement, then try unreconstructible non-tool configuration and verify an explicit failure rather than fallback. On pi 1.0.2, exercise both the default fullscreen TUI and `--tui-mode regular`.
+5. Repeat with explicit local `-e`, `--skill`, tool exclusions, and temporary project trust. Check inherited CLI selection policy without catalog equivalence enforcement, then try unreconstructible non-tool configuration and verify an explicit failure rather than fallback. On pi 1.2.0, exercise both the default fullscreen TUI and `--tui-mode regular`.
 6. After a run, exercise `/reload`, `/new`, `/resume`, `/fork`, and quit; verify that no child processes or progress callbacks remain.
 
 ## Maintaining the documentation

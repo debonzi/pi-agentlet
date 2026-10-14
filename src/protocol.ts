@@ -49,6 +49,7 @@ export class Transcript {
   diagnostic?: string;
   usage?: Usage;
   ended = false;
+  settled = false;
   private activity: (text: string) => void;
   constructor(activity: (text: string) => void) { this.activity = activity; }
   accept(value: unknown): void {
@@ -57,8 +58,17 @@ export class Transcript {
     if (["agent_start", "auto_retry_start", "compaction_start"].includes(event.type)) {
       this.answer = undefined;
       this.ended = false;
+      this.settled = false;
     }
     if (event.type === "agent_end") this.ended = event.willRetry !== true;
+    if (event.type === "agent_settled") {
+      if (typeof event.aborted !== "boolean") throw new Error("Invalid agent settlement.");
+      this.settled = this.ended && !event.aborted;
+      if (event.aborted) {
+        this.answer = undefined;
+        this.diagnostic = "The child reported an aborted run at settlement.";
+      }
+    }
     // Non-conversation usage is persisted separately by this pi version. Do not
     // count the duplicate compaction_end result or message entry_appended events.
     if (event.type === "entry_appended" && ["usage", "compaction", "branch_summary"].includes(event.entry?.type)) {
@@ -67,6 +77,7 @@ export class Transcript {
     if (event.type === "message_start" && event.message?.role === "assistant") {
       this.answer = undefined;
       this.ended = false;
+      this.settled = false;
     }
     if (event.type === "message_update" && event.assistantMessageEvent?.type === "error") {
       this.answer = undefined;

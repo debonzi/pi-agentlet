@@ -9,7 +9,10 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const usage = { input: 3, output: 2, cacheRead: 1, cacheWrite: 0, totalTokens: 6, cost: { input: 0.01, output: 0.02, cacheRead: 0, cacheWrite: 0, total: 0.03 } };
 const assistant = (text, stopReason = "stop", extra = []) => ({ role: "assistant", content: [{ type: "text", text }, ...extra], stopReason, usage });
 const event = value => process.stdout.write(JSON.stringify(value) + "\n");
-const end = message => { event({ type: "message_end", message }); event({ type: "turn_end", message }); event({ type: "agent_end", messages: [message] }); };
+const end = message => {
+  event({ type: "message_end", message }); event({ type: "turn_end", message }); event({ type: "agent_end", messages: [message] });
+  if (mode !== "unsettled") event({ type: "agent_settled", aborted: mode === "settled-abort" });
+};
 if (mode !== "unverified") writeSync(4, '{"ready":true}\n');
 if (mode === "mismatch") { writeSync(4, '{"error":"Resource mismatch"}\n'); setInterval(() => {}, 1000); }
 else if (mode === "invalid") process.stdout.write("not json; secret api-key\n");
@@ -45,7 +48,7 @@ else if (mode === "ignore" || mode === "tree") {
       : mode === "large" ? "😀".repeat(6000) : "Final café 😀";
     const message = assistant(text, "stop", [{ type: "thinking", thinking: "FINAL_THINKING_PRIVATE" }, { type: "text", text: "Second text block" }]);
     if (mode === "chunked") {
-      const bytes = Buffer.from(JSON.stringify({ type: "message_end", message }) + "\n" + JSON.stringify({ type: "agent_end", messages: [message] }));
+      const bytes = Buffer.from(JSON.stringify({ type: "message_end", message }) + "\n" + JSON.stringify({ type: "agent_end", messages: [message] }) + "\n" + JSON.stringify({ type: "agent_settled", aborted: false }));
       for (const byte of bytes) { process.stdout.write(Buffer.from([byte])); await wait(1); }
     } else end(message);
     if (mode === "nonzero") process.exitCode = 7;
