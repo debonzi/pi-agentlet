@@ -24,11 +24,11 @@ It is a good fit for independent code reviews, test-coverage checks, and focused
 
 ### Requirements
 
-- **pi `>=1.2.0 <1.3.0` (stable 1.2.x)** from `@earendil-works/pi-coding-agent`, installed through Node/npm.
+- **pi `>=1.2.0 <1.4.0` (stable 1.2.x and 1.3.x)** from `@earendil-works/pi-coding-agent`, installed through Node/npm.
 - **Node.js 24+** and **Linux**.
 - A working pi model/provider configuration.
 
-The version gate admits all stable pi 1.2.x releases, including unvalidated patches; only 1.2.0 has been integration-tested. Versions outside `>=1.2.0 <1.3.0` and prereleases are rejected. Admission is not a guarantee of compatibility with later patches. Select a physical model; virtual models and their routing state are not supported. Native binary installations are not integration-tested. See [compatibility notes](docs/compatibility.md) for SDK, wrapper, and extension limitations.
+By explicit support policy, the version gate admits all stable pi 1.2.x and 1.3.x releases, including unvalidated patches. Exact releases 1.2.0 and 1.3.0 have been integration-tested on both shipped CLI layouts, including isolated regular/fullscreen PTY checks. Versions outside `>=1.2.0 <1.4.0` and prereleases are rejected. Admission is not a guarantee of compatibility with untested patches. Select a physical model; virtual models and their routing state are not supported. Native binary installations are not integration-tested. See [compatibility notes](docs/compatibility.md) for SDK, wrapper, and extension limitations.
 
 ### From GitHub
 
@@ -150,7 +150,7 @@ A timeout affects only that child. `timeoutSeconds` can shorten or extend the de
 
 **Smaller parent context does not mean lower cost.** Each child makes its own model requests. Reported usage is aggregated, but total tokens, cost, and latency may increase.
 
-**Resources are reloaded, not cloned from memory.** Extension startup side effects can repeat, including MCP connections on pi 1.2.0. The parent's `--no-mcp` option is inherited. Tool availability belongs to pi; a fresh child is not rejected because its MCP tools are still connecting or its catalog differs from the parent's. Extensions requiring a TUI or human confirmation may not work in children. Keep resource configuration unchanged during delegation. pi-agentlet does not automatically approve prompts, install missing resources, or silently switch models to make a task run. See [compatibility notes](docs/compatibility.md) if your setup is unsupported.
+**Resources are reloaded, not cloned from memory.** Extension startup side effects can repeat, including MCP connections on pi 1.2.0 and 1.3.0. The parent's `--no-mcp` option is inherited. Tool availability belongs to pi; a fresh child is not rejected because its MCP tools are still connecting or its catalog differs from the parent's. Extensions requiring a TUI or human confirmation may not work in children. Keep resource configuration unchanged during delegation. pi-agentlet does not automatically approve prompts, install missing resources, or silently switch models to make a task run. See [compatibility notes](docs/compatibility.md) if your setup is unsupported.
 
 ## Development
 

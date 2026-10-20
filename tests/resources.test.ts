@@ -64,21 +64,23 @@ test("verification detects non-reproducible configuration without any fallback",
   assert.match(mismatch({ ...expected, trusted: false }, pi, ctx, options)!, /trust/);
   assert.equal("toolsHash" in expected, false);
   assert.match(mismatch({ ...expected, resourcesHash: "changed" }, pi, ctx, options)!, /skills/);
-  assert.throws(() => expectation(pi, ctx, options, "0.1.0"), /supports pi >=1\.2\.0 <1\.3\.0/);
+  assert.throws(() => expectation(pi, ctx, options, "0.1.0"), /supports pi >=1\.2\.0 <1\.4\.0/);
   assert.throws(() => expectation(pi, { ...ctx, model: undefined }, options, SUPPORTED_VERSION), /model/);
   assert.throws(() => expectation(pi, ctx, { ...options, forceSystemPrompt: "private parent state" }, SUPPORTED_VERSION), /in-memory/);
   assert.throws(() => buildInvocation({ parsed: parsed({ apiKey: "secret" }), expected, agentDir: "/config", startupCwd: "/launch", exec: { command: "/pi", prefix: [] } }), /--api-key/);
 });
-test("pi compatibility admits stable 1.2.x even when unvalidated and removes every legacy window", () => {
+test("pi compatibility admits stable 1.2.x and 1.3.x including unvalidated patches without restoring legacy windows", () => {
   const { pi, ctx, options } = host();
-  for (const version of ["1.2.0", "1.2.0+build.1", "1.2.1", "1.2.42+build.1", "1.2.999"]) {
+  for (const version of ["1.2.0", "1.2.0+build.1", "1.2.1", "1.2.42+build.1", "1.2.999", "1.3.0", "1.3.0+build.1",
+    "1.3.1", "1.3.1+build.1", "1.3.42", "1.3.999"]) {
     assert.equal(supportsPiVersion(version), true, version);
     assert.doesNotThrow(() => expectation(pi, ctx, options, version));
   }
   for (const version of ["0.85.999", "0.86.0", "0.86.2", "0.87.0", "0.87.999", "0.87.0+build.1",
     "0.88.0", "0.98.999", "0.99.0", "0.99.1", "0.99.999", "0.99.1+build.1", "0.100.0",
     "1.0.0", "1.0.1", "1.0.2", "1.0.2+build.1", "1.0.3", "1.0.4", "1.0.999", "1.1.0", "1.1.999",
-    "1.3.0", "1.3.0+build.1", "1.3.1", "2.0.0", "1.2.0-rc.1", "1.2.1-rc.1", "1.3.0-rc.1", "1.02.0", "invalid"]) {
+    "1.4.0", "1.4.0+build.1", "1.4.1", "2.0.0", "1.2.0-rc.1", "1.2.1-rc.1", "1.3.0-rc.1", "1.3.0-rc.1+build.1",
+    "1.3.1-rc.1", "1.4.0-rc.1", "1.03.0", "1.02.0", "invalid"]) {
     assert.equal(supportsPiVersion(version), false, version);
   }
 });

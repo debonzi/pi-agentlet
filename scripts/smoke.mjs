@@ -32,7 +32,9 @@ try {
     const args = [resolve(cli), "--offline", "--mode", "json", "--print", "--no-session", "--approve",
       "--no-extensions", "-e", fixture("offline-provider.ts"), "-e", repo,
       "--no-skills", "--skill", skill, "--exclude-tools", "write,edit,bash",
-      "--provider", "agentlet-fixture", "--model", profile === "virtual" ? "virtual-fixture" : "fixture", "--thinking", "off", "--agentlet-smoke-profile", profile];
+      "--provider", "agentlet-fixture", "--model", profile === "virtual" ? "virtual-fixture"
+        : profile === "model-selection" ? "agentlet-decoy/fixture:high" : "fixture",
+      "--thinking", profile === "model-selection" ? "high" : "off", "--agentlet-smoke-profile", profile];
     if (tools) args.push("-e", "builtin:codemode", "-e", "builtin:tool-search", "-e", fixture("offline-tools.ts"));
     if (mcp) args.push("-e", "builtin:mcp");
     if (profile === "no-mcp") args.push("--no-mcp");
@@ -97,6 +99,7 @@ try {
     }
   };
   await run("basic");
+  await run("model-selection");
   await run("timeout");
   await run("codemode", { tools: true });
   await run("tool-differences", { tools: true });

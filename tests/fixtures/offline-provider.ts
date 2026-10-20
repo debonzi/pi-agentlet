@@ -23,13 +23,25 @@ export default function offlineProvider(pi: ExtensionAPI): void {
   pi.on("agent_before_settle", (_event, ctx) => {
     if (delegatedRun && pi.getFlag("agentlet-smoke-profile") === "settled-abort") ctx.abort();
   });
+  // Colliding authenticated providers and a literal id with provider/thinking syntax
+  // exercise CLI resolution without ever invoking a real provider or allowing fallback.
+  const literalModelId = "agentlet-decoy/fixture:high";
+  const modelConfig = { name: "Offline fixture", reasoning: false, input: ["text"] as ("text" | "image")[],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 4096 };
+  pi.registerProvider("agentlet-decoy", {
+    baseUrl: "https://unused.invalid", apiKey: "not-a-credential", api: "agentlet-decoy",
+    models: [{ ...modelConfig, id: "fixture" }, { ...modelConfig, id: literalModelId, reasoning: true }],
+    streamSimple() { throw new Error("Explicit provider selection was lost; no fallback is allowed."); },
+  });
   pi.registerProvider("agentlet-fixture", {
     baseUrl: "https://unused.invalid", apiKey: "not-a-credential", api: "agentlet-fixture",
-    models: [{ id: "fixture", name: "Offline fixture", reasoning: false, input: ["text"],
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 4096 }],
+    models: [{ ...modelConfig, id: "fixture" }, { ...modelConfig, id: literalModelId, reasoning: true }],
     streamSimple(model, context, options) {
       const stream = createAssistantMessageEventStream();
       const profile = pi.getFlag("agentlet-smoke-profile");
+      if (profile === "model-selection" && (model.provider !== "agentlet-fixture" || model.id !== literalModelId || pi.getThinkingLevel() !== "high")) {
+        throw new Error("Explicit physical model or effective thinking level was lost.");
+      }
       const users = context.messages.filter(message => message.role === "user");
       const delegated = JSON.stringify(users).includes("You are carrying out a delegated task");
       const result = context.messages.findLast(message => message.role === "toolResult" && message.toolName === "subagents");

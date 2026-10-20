@@ -6,9 +6,10 @@ import type { Args, BuildSystemPromptOptions, ExtensionAPI, ExtensionContext } f
 import type { Expectation, Invocation } from "./types.ts";
 
 export const GUARD_PATH = fileURLToPath(new URL("./verify-child.ts", import.meta.url));
-export const SUPPORTED_PI_RANGE = ">=1.2.0 <1.3.0";
+export const SUPPORTED_PI_RANGE = ">=1.2.0 <1.4.0";
 const SUPPORTED_PI_WINDOWS = [
-  [[1, 2, 0], [1, 3, 0]],
+  // Explicit support policy admits stable 1.2.x/1.3.x, including unvalidated patches.
+  [[1, 2, 0], [1, 4, 0]],
 ] as const;
 
 type VersionTuple = readonly [number, number, number];
