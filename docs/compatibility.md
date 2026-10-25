@@ -2,7 +2,7 @@
 
 This document records host-specific evidence and limitations for the [functional specification](functional-spec.md) and [architecture decisions](architecture.md). See the [README](../README.md) for usage and the [development guide](development.md) for verification commands.
 
-Allowed host range: `@earendil-works/pi-coding-agent` **>=1.2.0 <1.4.0** (stable **1.2.x and 1.3.x**, including build metadata); Node **24 or newer** on Linux. By explicit user request after the 1.3.0 review, the version gate admits unvalidated patches in both minor lines. **Exact releases 1.2.0 and 1.3.0 have been reviewed and integration-tested**; admission is not a compatibility guarantee for untested patches. This expands the initial 1.3.0-only admission, removes no support, and applies no new cutoff. Support strictly below 1.2.0 was previously explicitly removed, trimming all previous windows (`>=0.86.0 <0.88.0 || >=0.99.1 <0.100.0 || >=1.0.2 <1.1.0`) without filling intervening gaps. Releases >=1.4.0 and prereleases remain rejected. Local installation paths are evidence, not production defaults.
+Allowed host range: `@earendil-works/pi-coding-agent` **>=1.2.0 <2.0.0** (all stable **1.x releases from 1.2.0**, including build metadata); Node **24 or newer** on Linux. After the 1.4.0 review, an explicit user request expanded admission from `>=1.2.0 <1.4.0 || 1.4.0` to include unvalidated stable minor and patch releases up to 2.0.0. **Exact releases 1.2.0, 1.3.0, and 1.4.0 have been reviewed and integration-tested**; 1.3.0 and 1.4.0 were revalidated in this review, while 1.2.0 was unavailable. Broader admission is support policy, not a compatibility guarantee or evidence of additional tested releases. This expansion removes no support and applies no new cutoff. Support strictly below 1.2.0 was previously explicitly removed, trimming all previous windows (`>=0.86.0 <0.88.0 || >=0.99.1 <0.100.0 || >=1.0.2 <1.1.0`) without filling intervening gaps. Releases >=2.0.0 and all prereleases remain rejected. Local installation paths are evidence, not production defaults.
 
 ## Public APIs used
 
@@ -44,7 +44,26 @@ Before changing integration, the complete shipped 1.3.0 README and the extension
 | `pi-ai/dist/api/transform-messages.js`: drop other models' thinking; Kimi now uses Chat Completions `/v1`; changed retry patterns and catalog metadata | Independent children never receive parent thinking/history; physical model/resource verification is unchanged. Provider endpoint overrides may require user migration; no credentials, endpoint rewrites, or live provider calls were used. |
 | Exact internal package pins; interactive overlay completion fix | Preserve `*` host peer dependencies. No custom overlays are used. Ordinary tool rendering and default Loader cadence are unchanged; both CLI layouts pass isolated regular/fullscreen PTY checks. |
 
-The concrete pre-fix incompatibility was the version gate rejecting 1.3.0, including in the active session. Baseline fixtures (81 tests) and target typecheck already passed; the initial target smoke failed at its gate, not at provider execution. The initial minimal production adjustment added only 1.3.0. A subsequent explicit user request expanded admission to `>=1.2.0 <1.4.0`, including unvalidated stable patches; regression tests now admit both minor lines and reject 1.4.0 or newer and all prereleases while retaining the previous lower boundary. Neither a passing fixture suite nor that gate adjustment alone establishes support; the real-host results below do.
+The concrete pre-fix incompatibility was the version gate rejecting 1.3.0, including in the active session. Baseline fixtures (81 tests) and target typecheck already passed; the initial target smoke failed at its gate, not at provider execution. The initial minimal production adjustment added only 1.3.0. A subsequent explicit user request expanded admission to `>=1.2.0 <1.4.0`, including unvalidated stable patches; regression tests at that point admitted both minor lines and rejected 1.4.0 or newer and all prereleases while retaining the previous lower boundary. Neither a passing fixture suite nor that gate adjustment alone establishes support; the real-host results below do.
+
+### 1.4.0 review: changes mapped to integration
+
+The official [v1.4.0 release notes](https://github.com/earendil-works/pi/releases/tag/v1.4.0), shipped changelog (2026-10-21), and `gh-axi release list -R earendil-works/pi --limit 8` identify 1.4.0 as the next published release after the previously reviewed 1.3.0, with no intervening published release in that list. Release notes were read with `gh-axi release view v1.4.0 -R earendil-works/pi --full`; linked documentation is version-tagged.
+
+Before editing, the complete shipped 1.4.0 README and the extension/lifecycle, TUI, JSON, CLI/CLI-integration, SDK, package, configuration/settings/environment, provider/custom-provider/model, MCP, virtual-model, and codemode guides were read, together with Models Configuration and the relevant security/trust, session/session-format/message-types/compaction, skills, prompt-template, theme, terminal, keybinding, usage, and context references. Changed relevant 1.3.0 guides were also read completely; unchanged guides were compared byte-for-byte. Corresponding public extension/context/tool/rendering/lifecycle, CLI, resource-loader, and structured-prompt declarations and subagent/tool-rendering/SDK examples were inspected.
+
+Byte comparisons confirmed unchanged extension public declarations/runner/wrapper, resource loader and declarations, CLI parser/declarations and main entry, JSON event transformation, print mode, session manager/runtime, settings, package manager, trust, structured prompt builder, tool-execution renderer, and pi-tui Loader. Changed session recovery/tool restoration, SDK/provider composition/runtime, codemode admission, MCP config, interactive dialogs, and terminal-exit restoration implementations were inspected. This is source-review evidence, not a substitute for the real-host matrix below.
+
+| Upstream evidence in 1.4.0 | Repository impact / evidence |
+|---|---|
+| `dist/core/agent-session.js`: recovery now omits a failed attempt and its matching tool results from projected context; extension tools not mentioned on a resumed branch can activate | `protocol.ts` still accepts only finalized normal text followed by final non-aborted settlement; no context/history is copied. Existing protocol retry/usage tests and real `length`, `custom-start`, and `settled-abort` profiles pass. Resume/fork recovery itself was not exercised. |
+| `dist/core/compaction/{compaction,branch-summarization}.js`: summary output caps removed; split-turn instructions forwarded | Agentlet calls neither summary helper. `protocol.ts` continues counting reported `entry_appended` usage once, not duplicate completion snapshots. Fixture coverage passes; real summary generation remains unvalidated. No extra summarization or resource fallback was added. |
+| `dist/extensions/codemode/execute.js`: FIFO worker admission waits up to 60 seconds; `PI_CODEMODE_MAX_WORKERS` overrides the per-process default of two | Agentlet still uses independent processes and its own bounded five-child queue. Existing real codemode/nested-usage, local-MCP, timeout and cancellation profiles pass. `resources.test.ts` now explicitly checks preservation of the new environment setting. Saturating a child's worker pool is not covered. |
+| `dist/core/sdk.js`, `model-runtime.js`, and pi-ai client identity: attribution headers move below `before_provider_headers`; default models/catalogs and retry behavior change | `resources.ts` pins the physical provider/model/thinking rather than using defaults. `model-selection` passes with authenticated offline collisions and a literal model ID; the adapter does not serialize header hooks or arbitrary provider closures. Actual HTTP/OAuth/provider transport behavior remains unvalidated. |
+| `dist/extensions/mcp/config.js`: strip a UTF-8 BOM; provider composition accepts classifier compatibility metadata; loader aliases expose `pi-ai/models` | No adapter shim needed: resources are reloaded by the same host installation. Delayed local MCP, `--no-mcp`, built-in resource selections, and differing child catalogs pass unchanged. BOM-specific configuration, classifier/image calls, and the new import alias were source-reviewed, not separately integration-tested. |
+| `pi-tui/dist/{tui,tui-alt-screen,terminal}.js`: last-resort exit restoration; host interactive dialogs now stack; Rex and Markdown fixes | Agentlet uses only the ordinary tool block, not dialogs or a custom TUI. Public row invalidation and 80 ms Loader defaults are unchanged. Both layouts pass isolated regular/fullscreen basic/cancel PTY checks, including expansion, resize, Escape, reload, new session, quit and fixture cleanup. Hard-kill restoration, real terminals, mouse and scrollback are not certified. |
+
+The concrete reproduced incompatibility was the gate rejecting the active 1.4.0 host. Before changes, all 81 fixtures and target typecheck passed, but target smoke failed at `Unsupported pi version: 1.4.0` before provider work. The initial minimal production change added exactly 1.4.0 (including build metadata), with regression coverage then retaining both older windows and rejecting 1.4.1+, future minor/major releases and prereleases. The subsequent explicit policy expansion to `>=1.2.0 <2.0.0` now admits stable 1.x minor/patch releases without claiming they were reviewed or tested; tests retain the lower boundary and reject 2.x and all prereleases. The smoke scripts share `supportsPiVersion()` and contain no separate version-dependent profiles to update; all 13 profiles remain unconditional and unchanged. The verifier still requires the child's exact host version. No protocol, rendering, lifecycle, cleanup, or product-contract replacement was needed, and host peer dependencies remain `"*"`.
 
 ## Important findings
 
@@ -62,7 +81,7 @@ Normal CLI launches with file-backed global/project resources and explicit CLI s
 
 Tool handling replays `--tools` (plain/pattern or additive entries), `--exclude-tools`, `--no-tools`, and `--no-builtin-tools` exactly as selected by the parent. No extra tool restriction, fallback selection, `subagents` disabling, catalog comparison, or membership enforcement is added. Every child receives the instruction not to use `subagents` or start other sessions to delegate; it is not a technical recursion barrier.
 
-The CLI script is accepted only when its real path is `dist/cli.js` or `dist/bundle/cli.js` under a package named `@earendil-works/pi-coding-agent`. The bundled layout must also match that package's `bin.pi` declaration, the npm entry point throughout the supported range. Launcher symlinks resolve to the same installed script, not a different CLI. Only these two layouts are checked, with no unrestricted ancestor search. The shipped unbundled CLI remains supported even when `bin.pi` selects the bundle. A native executable named `pi` is recognized without falling back to PATH, but is not integration-tested. Tests may inject a fixture executable directly into the runner; that is not a public per-task capability.
+The CLI script is accepted only when its real path is `dist/cli.js` or `dist/bundle/cli.js` under a package named `@earendil-works/pi-coding-agent`. The bundled layout must also match that package's `bin.pi` declaration, the npm entry point in the reviewed releases. Launcher symlinks resolve to the same installed script, not a different CLI. Only these two layouts are checked, with no unrestricted ancestor search. The shipped unbundled CLI remains supported even when `bin.pi` selects the bundle. A native executable named `pi` is recognized without falling back to PATH, but is not integration-tested. Tests may inject a fixture executable directly into the runner; that is not a public per-task capability.
 
 ## Explicit limitations
 
@@ -82,7 +101,52 @@ These boundaries do not justify disabling extensions, downgrading models, copyin
 
 `npm test` exercises fixture subprocesses and host mocks, including tool APIs that throw if configuration capture or verification accesses them. It checks inherited CLI tool options without synthesized restrictions and accepts absent, differing, or SDK-origin tool catalogs while retaining non-tool incompatibility failures.
 
-### Current target and commands (2026-10-17 UTC)
+### Current target and commands (2026-10-25 UTC)
+
+**Verdict: compatible after the gate adjustment, within the documented CLI/offline validation boundaries.** The active extension's imported `VERSION` reported `installed version is 1.4.0` when the initial bounded analysis delegation was rejected. No child started. The active parent PID 1037404 runs `/home/debonzi/.nvm/versions/node/v24.16.0/bin/node`; its process title is rewritten to `pi`, so `/proc` alone does not expose the original script. Its inherited `PI_MANAGED_INSTALL_ROOT`, the managed launcher's release selection, `current-version` = 1.4.0, the release manifest, and the `node_modules/.bin/pi` symlink establish the matching installation:
+
+- Package: `/home/debonzi/.pi/agent/install/releases/1.4.0/node_modules/@earendil-works/pi-coding-agent`.
+- Launcher: `/home/debonzi/.local/bin/pi` → `/home/debonzi/.pi/agent/bin/pi` → selected release's `node_modules/.bin/pi`.
+- Declared/runnable CLI: `dist/bundle/cli.js`; shipped alternative: `dist/cli.js`.
+
+This uses active imported-version and managed-launcher evidence, not a PATH/latest-release substitution. The initial Git working tree was clean. Only local 1.3.0 and 1.4.0 installations were available. The retained 1.2.x window was not revalidated: its previously tested 1.2.0 installation is no longer present. No other stable patch was available.
+
+Existing toolchains were reused: Node 24.16.0, TypeScript 5.9.3 at `/home/debonzi/devel/repos/opcode/site/node_modules/typescript/lib/typescript.js`, host-resolved `@types/node` 22.19.19, and Python 3.13.0. Commands run:
+
+```sh
+HOST=/home/debonzi/.pi/agent/install/releases/1.4.0/node_modules/@earendil-works/pi-coding-agent
+export PI_AGENTLET_HOST="$HOST"
+export PI_AGENTLET_TYPESCRIPT=/home/debonzi/devel/repos/opcode/site/node_modules/typescript/lib/typescript.js
+npm test
+npm run typecheck
+npm run check
+PI_AGENTLET_CLI="$HOST/dist/bundle/cli.js" node scripts/smoke.mjs
+PI_AGENTLET_CLI="$HOST/dist/cli.js" node scripts/smoke.mjs
+PI_AGENTLET_CLI="$HOST/dist/bundle/cli.js" python3 scripts/smoke-pty.py
+PI_AGENTLET_CLI="$HOST/dist/cli.js" python3 scripts/smoke-pty.py
+# Retained representative: typecheck and all four smoke commands repeated with:
+HOST=/home/debonzi/.pi/agent/install/releases/1.3.0/node_modules/@earendil-works/pi-coding-agent
+export PI_AGENTLET_HOST="$HOST"
+```
+
+| Validation | Exact host / layouts | Outcome |
+|---|---|---|
+| `npm test` | Host-independent fixtures, Node 24.16.0 | 82 passed, none skipped; repeated by `npm run check`. |
+| `npm run typecheck`, `npm run check` | pi 1.4.0 declarations; external compiler/Node types above | Passed. |
+| Retained-host `npm run typecheck` | pi 1.3.0 declarations | Passed. |
+| `node scripts/smoke.mjs` | pi 1.4.0 and 1.3.0, both `dist/bundle/cli.js` and `dist/cli.js` | All 13 profiles passed per release/layout: 52 profile runs. Cleanup assertions found no surviving fixture pi/MCP processes. |
+| `python3 scripts/smoke-pty.py` | Both releases/layouts, regular/fullscreen, basic/cancel | All 16 combinations passed, including expansion, resize/aggregate tail, Escape, settlement, reload, new session, quit and cleanup. No harness/assertion changes. |
+| Retained pi 1.2.x | No installation available | Not revalidated; 1.2.0 results below are historical evidence only. |
+
+Support initially changed from `>=1.2.0 <1.4.0` to `>=1.2.0 <1.4.0 || 1.4.0` after the review. A subsequent explicit user request expanded it to `>=1.2.0 <2.0.0`, including unvalidated stable minor and patch releases. No cutoff was requested or applied. This is an admission policy, not a claim that every admitted release was reviewed or tested.
+
+After this gate-only policy expansion, `npm test` (82 passed, none skipped), `npm run typecheck`, and `npm run check` passed again using the exact target toolchain and commands above. Retained-host 1.3.0 typecheck and all 13 headless smoke profiles on both releases and both CLI layouts were also rerun successfully (52 profile runs). PTY checks were not rerun for the policy change; the 16 PTY results above are from the preceding compatibility review. No additional host release was available or declared tested.
+
+All smoke runs used isolated temporary HOME/config/project directories, deterministic in-process providers, and local stdio MCP only. No normal user resources, credentials, remote MCP target, installation/update, or paid provider was used. The diff changes only the gate, regression tests, and support/evidence documentation. No commit, publish, live reload, or global configuration change was performed; this parent retains its previously loaded gate until reload/restart.
+
+Real-provider behavior (including the active OpenAI Codex transport), classifier/image services, summary generation, worker-pool saturation, native binaries, Bun, other operating systems, resume/fork UI, and pixel-perfect/real-terminal behavior remain **not yet validated** on 1.4.0. Provider-specific migration and arbitrary runtime-only non-tool state remain subject to the explicit limitations above, not silent fallback.
+
+### Previous target and commands (2026-10-17 UTC)
 
 The active session's imported `VERSION` was confirmed by its own tool rejection: `installed version is 1.3.0`. The running parent process was Node 24.16.0, started after the managed launcher selected `current-version` 1.3.0. The launcher `/home/debonzi/.pi/agent/bin/pi` executes the selected release's `node_modules/.bin/pi`, whose symlink and package `bin.pi` both identify `dist/bundle/cli.js`. The exact package is `/home/debonzi/.pi/agent/install/releases/1.3.0/node_modules/@earendil-works/pi-coding-agent`; `dist/cli.js` is also shipped and tested. This combines active-process/import evidence with the launcher, not a PATH or latest-release substitution. The initial Git working tree was clean.
 

@@ -71,7 +71,7 @@ Every child receives an automatic instruction to work directly, not use `subagen
 
 ## Independent context and configuration
 
-By explicit support policy, the host version gate admits `>=1.2.0 <1.4.0`: all stable 1.2.x and 1.3.x releases, including unvalidated patches; build metadata is accepted. Exact releases 1.2.0 and 1.3.0 have been integration-tested; admission does not guarantee compatibility with untested patches. Versions below 1.2.0, versions >=1.4.0, and prereleases are rejected before child startup. This expansion removes no existing support.
+By explicit support policy, the host version gate admits `>=1.2.0 <2.0.0`: all stable 1.x releases from 1.2.0, including unvalidated minor and patch releases; build metadata is accepted. Exact releases 1.2.0, 1.3.0, and 1.4.0 have been integration-tested; the latest review revalidated 1.3.0 and 1.4.0, while 1.2.0 was unavailable. Admission does not guarantee compatibility with untested releases. Versions below 1.2.0, versions >=2.0.0, and prereleases are rejected before child startup. This explicitly requested policy expansion removes no existing support and does not establish validation of additional releases.
 
 Children start new ephemeral conversations. Never copy or fork parent history, replay parent messages/attachments, or copy the parent's complete system prompt to simulate resource inheritance.
 
