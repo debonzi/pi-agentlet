@@ -25,16 +25,25 @@ try {
   const { version } = JSON.parse(await readFile(join(hostRoot, "package.json"), "utf8"));
   assert.ok(supportsPiVersion(version), `Unsupported pi version: ${version}.`);
   const run = async (profile, { tools = false, mcp = false } = {}) => {
-    await writeFile(join(cwd, ".pi/settings.json"), JSON.stringify({ defaultTools: ["read", ...(tools ? ["codemode"] : [])] }));
+    if (profile === "saved-denial") {
+      // Only AGENTS.md remains: saved denial must win even without trust-gated resources.
+      await rm(join(cwd, ".pi"), { recursive: true, force: true });
+      await writeFile(join(config, "trust.json"), JSON.stringify({ [cwd]: false }));
+    } else {
+      await mkdir(join(cwd, ".pi"), { recursive: true });
+      await writeFile(join(cwd, ".pi/settings.json"), JSON.stringify({ defaultTools: ["read", ...(tools ? ["codemode"] : [])] }));
+    }
     await writeFile(join(config, "mcp.json"), JSON.stringify({ mcpServers: mcp ? {
       offline: { command: process.execPath, args: [fixture("offline-mcp.mjs"), "--delay-ms", "300"], exposure: "codemode" },
     } : {} }));
-    const args = [resolve(cli), "--offline", "--mode", "json", "--print", "--no-session", "--approve",
+    const modelSelection = profile === "model-selection" || profile === "provider-slash";
+    const args = [resolve(cli), "--offline", "--mode", "json", "--print", "--no-session",
+      ...(profile === "saved-denial" ? [] : ["--approve"]),
       "--no-extensions", "-e", fixture("offline-provider.ts"), "-e", repo,
       "--no-skills", "--skill", skill, "--exclude-tools", "write,edit,bash",
-      "--provider", "agentlet-fixture", "--model", profile === "virtual" ? "virtual-fixture"
-        : profile === "model-selection" ? "agentlet-decoy/fixture:high" : "fixture",
-      "--thinking", profile === "model-selection" ? "high" : "off", "--agentlet-smoke-profile", profile];
+      "--provider", profile === "provider-slash" ? "agentlet/fixture" : "agentlet-fixture", "--model", profile === "virtual" ? "virtual-fixture"
+        : modelSelection ? "agentlet-decoy/fixture:high" : "fixture",
+      "--thinking", modelSelection ? "high" : "off", "--agentlet-smoke-profile", profile];
     if (tools) args.push("-e", "builtin:codemode", "-e", "builtin:tool-search", "-e", fixture("offline-tools.ts"));
     if (mcp) args.push("-e", "builtin:mcp");
     if (profile === "no-mcp") args.push("--no-mcp");
@@ -71,6 +80,24 @@ try {
         if (profile === "codemode" || profile === "tool-differences") {
           const result = events.find(event => event.type === "message_end" && event.message.role === "toolResult" && event.message.toolName === "subagents");
           assert.equal(result.message.usage.totalTokens, 30); // Three children: two responses (4) plus nested tools (6).
+          assert.equal(result.message.usage.cost.totalFromProvider, false);
+        }
+        if (profile === "billed-cost") {
+          const result = events.find(event => event.type === "message_end" && event.message.role === "toolResult" && event.message.toolName === "subagents");
+          // Synthetic billing data only; the provider never makes network calls.
+          assert.equal(result.message.usage.totalTokens, 6);
+          assert.equal(result.message.usage.cost.total, 0.75);
+          assert.equal(result.message.usage.cost.totalFromProvider, true);
+          assert.ok(result.message.details.tasks.every(task => task.usage.cost.totalFromProvider === true && task.usage.cost.total === 0.25));
+        }
+        if (profile === "forced-prompt") {
+          const result = events.find(event => event.type === "message_end" && event.message.role === "toolResult" && event.message.toolName === "subagents");
+          assert.equal(result.message.details.tasks.length, 3);
+          assert.ok(result.message.details.tasks.every(task => task.state === "failed" && task.answer === undefined && task.usage === undefined
+            && task.diagnostic === "Resource incompatibility: child configuration differs from the parent. No fallback was used."));
+        }
+        if (profile === "saved-denial") {
+          assert.deepEqual(JSON.parse(await readFile(join(config, "trust.json"), "utf8")), { [cwd]: false });
         }
       }
       const servers = await readdir(pids), sessions = await readdir(piPids);
@@ -100,6 +127,9 @@ try {
   };
   await run("basic");
   await run("model-selection");
+  await run("provider-slash");
+  await run("billed-cost");
+  await run("forced-prompt");
   await run("timeout");
   await run("codemode", { tools: true });
   await run("tool-differences", { tools: true });
@@ -111,4 +141,5 @@ try {
   await run("custom-start");
   await run("length");
   await run("settled-abort");
+  await run("saved-denial");
 } finally { await rm(root, { recursive: true, force: true }); }

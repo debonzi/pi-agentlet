@@ -1,4 +1,4 @@
-export const VERSION = "1.2.0";
+export const VERSION = "1.5.2";
 export const getAgentDir = () => "/test/config";
 export const parseArgs = () => ({ messages: [], fileArgs: [], diagnostics: [], unknownFlags: new Map() });
 export const Type = {

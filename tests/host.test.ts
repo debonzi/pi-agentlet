@@ -213,7 +213,7 @@ test("host registration, headless execution, compact updates, errors and lifecyc
     const script = join(root, "dist/bundle/cli.js"); await writeFile(script, "");
     process.argv[1] = script;
     await handlers.get("session_start")!({ reason: "startup" }, ctx);
-    // Pi 1.2.0 custom-message starts have structured options but no prompt/images.
+    // Custom-message starts have structured options but no prompt/images.
     await handlers.get("before_agent_start")!({ messageType: "custom", message: { role: "custom", content: "fixture" }, systemPromptOptions: {} }, ctx);
     const updates: any[] = [];
     let writes = 0;

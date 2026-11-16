@@ -17,8 +17,13 @@ export default function offlineProvider(pi: ExtensionAPI): void {
     },
   });
   let delegatedRun = false;
-  pi.on("before_agent_start", event => {
+  let trusted: boolean | undefined;
+  pi.on("before_agent_start", (event, ctx) => {
     delegatedRun = event.messageType === "user" && event.prompt.includes("You are carrying out a delegated task");
+    trusted = ctx.isProjectTrusted();
+    if (delegatedRun && pi.getFlag("agentlet-smoke-profile") === "forced-prompt") {
+      event.systemPromptOptions.forceSystemPrompt = "";
+    }
   });
   pi.on("agent_before_settle", (_event, ctx) => {
     if (delegatedRun && pi.getFlag("agentlet-smoke-profile") === "settled-abort") ctx.abort();
@@ -33,15 +38,18 @@ export default function offlineProvider(pi: ExtensionAPI): void {
     models: [{ ...modelConfig, id: "fixture" }, { ...modelConfig, id: literalModelId, reasoning: true }],
     streamSimple() { throw new Error("Explicit provider selection was lost; no fallback is allowed."); },
   });
-  pi.registerProvider("agentlet-fixture", {
+  for (const provider of ["agentlet-fixture", "agentlet/fixture"]) pi.registerProvider(provider, {
     baseUrl: "https://unused.invalid", apiKey: "not-a-credential", api: "agentlet-fixture",
     models: [{ ...modelConfig, id: "fixture" }, { ...modelConfig, id: literalModelId, reasoning: true }],
     streamSimple(model, context, options) {
       const stream = createAssistantMessageEventStream();
       const profile = pi.getFlag("agentlet-smoke-profile");
-      if (profile === "model-selection" && (model.provider !== "agentlet-fixture" || model.id !== literalModelId || pi.getThinkingLevel() !== "high")) {
+      if ((profile === "model-selection" || profile === "provider-slash")
+        && (model.provider !== (profile === "provider-slash" ? "agentlet/fixture" : "agentlet-fixture")
+          || model.id !== literalModelId || pi.getThinkingLevel() !== "high")) {
         throw new Error("Explicit physical model or effective thinking level was lost.");
       }
+      if (profile === "saved-denial" && trusted !== false) throw new Error("Saved project trust denial was lost.");
       const users = context.messages.filter(message => message.role === "user");
       const delegated = JSON.stringify(users).includes("You are carrying out a delegated task");
       const result = context.messages.findLast(message => message.role === "toolResult" && message.toolName === "subagents");
@@ -87,6 +95,7 @@ export default function offlineProvider(pi: ExtensionAPI): void {
         const value = JSON.stringify(result.content);
         const completed = (value.match(/— completed/g) ?? []).length;
         const valid = profile === "virtual" ? completed === 0 && value.includes("does not support virtual models")
+          : profile === "forced-prompt" ? completed === 0 && (value.match(/Resource incompatibility: child configuration differs from the parent\. No fallback was used\./g) ?? []).length === 3
           : profile === "timeout" ? completed === 2 && value.includes("— timed_out")
           : profile === "length" ? completed === 0 && (value.match(/completion: length/g) ?? []).length === 3
           : profile === "settled-abort" ? completed === 0 && (value.match(/aborted run at settlement/g) ?? []).length === 3
@@ -111,7 +120,8 @@ export default function offlineProvider(pi: ExtensionAPI): void {
         role: "assistant", provider: model.provider, model: model.id, api: model.api, content,
         stopReason: content[0]?.type === "toolCall" ? "toolUse" : delegated && profile === "length" ? "length" : "stop", timestamp: Date.now(),
         usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2,
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: profile === "billed-cost" ? 0.25 : 0,
+            ...(profile === "billed-cost" ? { totalFromProvider: true } : {}) } },
       };
       stream.push({ type: "start", partial: message });
       stream.push({ type: "done", reason: message.stopReason as "stop" | "toolUse" | "length", message });

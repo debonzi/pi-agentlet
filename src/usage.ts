@@ -14,6 +14,8 @@ export function addUsage(total: Usage | undefined, value: unknown): Usage | unde
       input: sum(total?.cost.input, data.cost?.input), output: sum(total?.cost.output, data.cost?.output),
       cacheRead: sum(total?.cost.cacheRead, data.cost?.cacheRead), cacheWrite: sum(total?.cost.cacheWrite, data.cost?.cacheWrite),
       total: sum(total?.cost.total, data.cost?.total),
+      // A combined total is billed only when every accepted contribution is.
+      totalFromProvider: data.cost?.totalFromProvider === true && (!total || total.cost.totalFromProvider === true),
     },
   };
   if (data.reasoning !== undefined || total?.reasoning !== undefined) result.reasoning = sum(total?.reasoning, data.reasoning);

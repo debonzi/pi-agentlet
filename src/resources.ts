@@ -6,10 +6,10 @@ import type { Args, BuildSystemPromptOptions, ExtensionAPI, ExtensionContext } f
 import type { Expectation, Invocation } from "./types.ts";
 
 export const GUARD_PATH = fileURLToPath(new URL("./verify-child.ts", import.meta.url));
-export const SUPPORTED_PI_RANGE = ">=1.2.0 <2.0.0";
+export const SUPPORTED_PI_RANGE = ">=1.5.0 <1.6.0";
 const SUPPORTED_PI_WINDOWS = [
-  // Explicit support policy admits stable 1.x from 1.2.0, including unvalidated releases.
-  [[1, 2, 0], [2, 0, 0]],
+  // Explicit support policy admits stable 1.5.x, including unvalidated patches.
+  [[1, 5, 0], [1, 6, 0]],
 ] as const;
 
 type VersionTuple = readonly [number, number, number];
@@ -60,7 +60,7 @@ export function expectation(pi: Pick<ExtensionAPI, "getThinkingLevel">, ctx: Ext
   if (!supportsPiVersion(version)) throw new Error(`subagents supports pi ${SUPPORTED_PI_RANGE}; installed version is ${version}. Review resource/lifecycle APIs before expanding compatibility.`);
   if (!ctx.model) throw new Error("subagents requires an explicitly resolved parent model.");
   if (ctx.model.api === "pi-virtual") throw new Error("subagents does not support virtual models. Select a physical model; routing policy and state cannot be reconstructed.");
-  if (options.forceSystemPrompt) throw new Error("subagents cannot reconstruct an in-memory forced system prompt. Put reusable instructions in normal resources.");
+  if (options.forceSystemPrompt !== undefined) throw new Error("subagents cannot reconstruct an in-memory forced system prompt. Put reusable instructions in normal resources.");
   return {
     version, provider: ctx.model.provider, model: ctx.model.id,
     thinking: ctx.thinkingLevel ?? pi.getThinkingLevel(), trusted: ctx.isProjectTrusted(), cwd: ctx.cwd,
@@ -136,6 +136,7 @@ export function buildInvocation(input: {
 }
 
 export function mismatch(e: Expectation, pi: Pick<ExtensionAPI, "getThinkingLevel">, ctx: ExtensionContext, options: BuildSystemPromptOptions): string | undefined {
+  if (options.forceSystemPrompt !== undefined) return "in-memory forced system prompt";
   if (ctx.cwd !== e.cwd || ctx.isProjectTrusted() !== e.trusted) return "cwd or project trust";
   if (ctx.model?.provider !== e.provider || ctx.model?.id !== e.model || digest(ctx.model) !== e.modelHash) return "model/provider configuration";
   if (providerHash(ctx) !== e.providerHash) return "provider registration configuration";

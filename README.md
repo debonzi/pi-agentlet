@@ -24,11 +24,11 @@ It is a good fit for independent code reviews, test-coverage checks, and focused
 
 ### Requirements
 
-- **pi `>=1.2.0 <2.0.0` (stable 1.x releases from 1.2.0)** from `@earendil-works/pi-coding-agent`, installed through Node/npm.
+- **pi `>=1.5.0 <1.6.0` (stable 1.5.x releases)** from `@earendil-works/pi-coding-agent`, installed through Node/npm.
 - **Node.js 24+** and **Linux**.
 - A working pi model/provider configuration.
 
-By explicit support policy, the version gate admits all stable pi releases from 1.2.0 up to, but not including, 2.0.0, including unvalidated minor and patch releases. Exact releases 1.2.0, 1.3.0, and 1.4.0 have been integration-tested on both shipped CLI layouts, including isolated regular/fullscreen PTY checks; the latest review revalidated 1.3.0 and 1.4.0, while 1.2.0 was unavailable. Versions outside `>=1.2.0 <2.0.0` and prereleases are rejected. Admission is not a guarantee of compatibility with untested releases. Select a physical model; virtual models and their routing state are not supported. Native binary installations are not integration-tested. See [compatibility notes](docs/compatibility.md) for SDK, wrapper, and extension limitations.
+The requested support window is `>=1.5.0 <1.6.0`, including build metadata but excluding prereleases. Support below 1.5.0 has been removed; 1.6.0 and newer are rejected. Exact release **1.5.2** has been integration-tested on both shipped CLI layouts, including isolated regular/fullscreen PTY checks. The release notes for 1.5.0 and 1.5.1 were reviewed, but those hosts were unavailable for integration testing; other 1.5.x patches are admitted by policy, not claimed tested. Admission is not a guarantee of compatibility with untested releases. Select a physical model; virtual models and their routing state are not supported. Native binary installations are not integration-tested. See [compatibility notes](docs/compatibility.md) for SDK, wrapper, and extension limitations.
 
 ### From GitHub
 
@@ -150,7 +150,7 @@ A timeout affects only that child. `timeoutSeconds` can shorten or extend the de
 
 **Smaller parent context does not mean lower cost.** Each child makes its own model requests. Reported usage is aggregated, but total tokens, cost, and latency may increase.
 
-**Resources are reloaded, not cloned from memory.** Extension startup side effects can repeat, including MCP connections on pi 1.2.0, 1.3.0, and 1.4.0. The parent's `--no-mcp` option is inherited. Tool availability belongs to pi; a fresh child is not rejected because its MCP tools are still connecting or its catalog differs from the parent's. Extensions requiring a TUI or human confirmation may not work in children. Keep resource configuration unchanged during delegation. pi-agentlet does not automatically approve prompts, install missing resources, or silently switch models to make a task run. See [compatibility notes](docs/compatibility.md) if your setup is unsupported.
+**Resources are reloaded, not cloned from memory.** Extension startup side effects can repeat, including MCP connections on pi 1.5.x. The parent's `--no-mcp` option is inherited. Tool availability belongs to pi; a fresh child is not rejected because its MCP tools are still connecting or its catalog differs from the parent's. Extensions requiring a TUI or human confirmation may not work in children. Keep resource configuration unchanged during delegation. pi-agentlet does not automatically approve prompts, install missing resources, or silently switch models to make a task run. See [compatibility notes](docs/compatibility.md) if your setup is unsupported.
 
 ## Development
 

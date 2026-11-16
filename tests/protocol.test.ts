@@ -70,6 +70,22 @@ test("ancillary reported usage is counted once, not through duplicate completion
   t.accept({ type: "auto_retry_start" });
   assert.equal(t.answer, undefined);
 });
+test("billed-cost provenance survives finalized and ancillary usage without duplicate snapshots", () => {
+  const billed = { ...usage, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0.25, totalFromProvider: true } };
+  const message = { ...assistant("Final"), usage: billed };
+  const t = new Transcript(() => {});
+  t.accept({ type: "message_end", message });
+  t.accept({ type: "turn_end", message });
+  t.accept({ type: "agent_end", messages: [message] });
+  t.accept({ type: "message_end", message: { role: "toolResult", usage: billed } });
+  t.accept({ type: "tool_execution_end", result: { usage: billed } });
+  t.accept({ type: "entry_appended", entry: { type: "usage", usage: billed } });
+  assert.equal(t.usage?.totalTokens, 9);
+  assert.equal(t.usage?.cost.total, 0.75);
+  assert.equal(t.usage?.cost.totalFromProvider, true);
+  t.accept({ type: "entry_appended", entry: { type: "compaction", usage } });
+  assert.equal(t.usage?.cost.totalFromProvider, false);
+});
 test("settlement must follow agent_end, must not be aborted, and resets across continuations", () => {
   const t = new Transcript(() => {});
   t.accept({ type: "message_end", message: assistant("valid") });
