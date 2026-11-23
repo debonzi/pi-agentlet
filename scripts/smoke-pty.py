@@ -20,7 +20,7 @@ cli = Path(os.environ["PI_AGENTLET_CLI"]).resolve()
 repo = Path(__file__).resolve().parent.parent
 node = shutil.which("node")
 assert node, "An existing Node.js toolchain is required."
-# Use the allowed version range; admission does not imply prior host validation.
+# Apply the same minimum-version and prerelease policy as the extension.
 subprocess.run([node, "--input-type=module", "-e", """
 import { readFileSync } from 'node:fs';
 import { executable, supportsPiVersion } from './src/resources.ts';

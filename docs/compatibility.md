@@ -2,7 +2,9 @@
 
 This document records host-specific evidence and limitations for the [functional specification](functional-spec.md) and [architecture decisions](architecture.md). See the [README](../README.md) for usage and the [development guide](development.md) for verification commands.
 
-Allowed host range: `@earendil-works/pi-coding-agent` **>=1.5.0 <1.7.0** (stable **1.5.x and 1.6.x**, including build metadata); Node **24 or newer** on Linux. Existing 1.5.x support is retained without a new cutoff; prereleases and future minor releases are rejected. **Exact releases 1.5.2 and 1.6.0 have been reviewed and integration-tested**, including both shipped CLI layouts and isolated regular/fullscreen PTYs. Release notes for 1.5.0 and 1.5.1 were reviewed previously, but those hosts remain unavailable. Other 1.5.x and 1.6.x patches are admitted by explicit policy, not claimed reviewed or tested. The clarified upper boundary is exclusive: **1.7.0 and newer remain rejected**. Local installation paths are evidence, not production defaults.
+The minimum is stable `@earendil-works/pi-coding-agent` **1.5.0**, with build metadata accepted and prereleases rejected, on Node **24 or newer** and Linux. There is no upper version gate. A newer stable release can run without having been tested, and all existing runtime checks still apply, including exact parent/child version matching.
+
+**Latest integration-tested pi release: 1.6.0.** Exact releases 1.5.2 and 1.6.0 were reviewed and passed offline headless and isolated regular/fullscreen PTY checks on both shipped CLI layouts. Release notes for 1.5.0 and 1.5.1 were reviewed, but those hosts were unavailable for integration testing. The latest tested release is not a guarantee for every earlier or later release. The reviews below record the policy in effect at the time; their former upper bounds no longer apply. Local installation paths are evidence, not production defaults.
 
 ## Public APIs used
 
@@ -10,8 +12,12 @@ Allowed host range: `@earendil-works/pi-coding-agent` **>=1.5.0 <1.7.0** (stable
 - `before_agent_start.systemPromptOptions` exposes structured skills, context files, and custom/appended prompt inputs for both user and custom-message-triggered runs on 1.5.2. The adapter does not read `event.prompt`, which is absent on the new custom event variant. It retains the configuration reference for comparison, not the parent prompt/history.
 - `ctx.model`, `ctx.thinkingLevel`, `ctx.isProjectTrusted()`, `getAgentDir()`, `parseArgs()`, and `VERSION` expose effective non-tool configuration and CLI parsing. Parent CLI tool-selection options are replayed, but `getAllTools()` and `getActiveTools()` are not used to verify or constrain children. Tool discovery, exposure, activation, and readiness remain pi's responsibility.
 - `onUpdate`, `renderCall`, `renderResult`, theme colors, and TUI width helpers implement the tool-local UI. `ToolRenderContext.toolCallId` associates a row with its live execution; `invalidate()` rebuilds the row and requests rendering for UI-only animation. `usage` on the final tool result is supported.
-- The supported `pi-tui` Loader uses ten Braille frames (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`) at 80 ms. Tool renderers do not receive its required TUI instance, so the extension matches these defaults using a call-owned clock and public row invalidation rather than importing host internals. Custom global working-indicator overrides are not mirrored. The host does not dispose tool slot components on replacement; execution/lifecycle hooks own animation cleanup. In regular-screen mode, supported pi versions clear the screen and scrollback when the first changed line is above the tracked viewport. Keeping all live progress in a height-bounded final tail avoids that path when an expanded active block exceeds terminal height. The tail budget uses `process.stdout.rows` because `ToolRenderContext` does not expose available rows or row visibility; the extension cannot guarantee visibility if unrelated later UI pushes the entire block off-screen.
+- The tested `pi-tui` Loader uses ten Braille frames (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`) at 80 ms. Tool renderers do not receive its required TUI instance, so the extension matches these defaults using a call-owned clock and public row invalidation rather than importing host internals. Custom global working-indicator overrides are not mirrored. The host does not dispose tool slot components on replacement; execution/lifecycle hooks own animation cleanup. In regular-screen mode, the tested pi versions clear the screen and scrollback when the first changed line is above the tracked viewport. Keeping all live progress in a height-bounded final tail avoids that path when an expanded active block exceeds terminal height. The tail budget uses `process.stdout.rows` because `ToolRenderContext` does not expose available rows or row visibility; the extension cannot guarantee visibility if unrelated later UI pushes the entire block off-screen.
 - `session_shutdown` covers quit, reload, new/resume, and fork/clone teardown on 1.5.2. `session_start` recreates instance state. Public `agent_settled.aborted` is required to distinguish normal final completion from cancellation after an otherwise valid assistant answer.
+
+## Upper version gate removal
+
+Fixture tests confirm that stable versions at and above the former cutoff (including a later major version) reach normal configuration verification, while older versions and prereleases remain rejected. All 86 fixture tests, `npm run typecheck`, and `npm run check` passed. The 17 offline headless profiles passed again on both 1.6.0 CLI layouts. No newer host was available locally; those fixture cases test admission, not real-host compatibility.
 
 ## 1.6.0 review (2026-11-23 UTC)
 
@@ -31,7 +37,7 @@ Before editing integration, the complete shipped README and extension, TUI, JSON
 | Model defaults become GPT-6.2 Sol; Qwen endpoints/credentials, Anthropic threads and provider transports change | Explicit physical provider/model/effective thinking pins remain authoritative. Offline collision/literal-ID/provider-slash profiles pass. Actual transport/OAuth, new model capabilities and HTTP MCP are not validated. |
 | MCP summary helper extracted; pending restored tools survive unrelated deactivation | No catalog comparison/readiness barrier added; local delayed MCP, `--no-mcp`, tool deltas and differing child tools pass. Resume/fork restoration itself is not certified. |
 
-The concrete target incompatibility was the gate: the initial bundled smoke failed at `Unsupported pi version: 1.6.0` before host/provider work. The initial production adjustment added exactly 1.6.0 while preserving 1.5.x. After the user's clarification, the gate admits the requested stable `>=1.5.0 <1.7.0` window, including unvalidated patches. Regression tests check 1.6.x patch admission and rejection of 1.7.0, newer releases and prereleases. Both smoke scripts consume this shared gate; all 17 headless profiles remain unconditional, with no skipped behavior or new orchestration. Host peers remain `"*"`.
+The concrete target incompatibility was the gate: the initial bundled smoke failed at `Unsupported pi version: 1.6.0` before host/provider work. The initial production adjustment added exactly 1.6.0 while preserving 1.5.x. After the user's clarification, the gate at the time admitted the requested stable `>=1.5.0 <1.7.0` window, including unvalidated patches. Regression tests then checked 1.6.x patch admission and rejection of 1.7.0, newer releases and prereleases. Both smoke scripts consume this shared gate; all 17 headless profiles remain unconditional, with no skipped behavior or new orchestration. Host peers remain `"*"`.
 
 ### Validation and commands
 
@@ -90,7 +96,7 @@ The previous gate already admitted 1.5.2; this review did **not** reproduce a ta
 
 ## Historical reviews (removed support windows)
 
-Policies and results in this section describe earlier reviews, not the current supported range.
+Policies and results in this section describe earlier reviews, not the current version policy.
 
 ### 1.2.0 review
 

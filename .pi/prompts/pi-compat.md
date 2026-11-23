@@ -1,6 +1,6 @@
 ---
-description: Validate compatibility with the current pi installation and apply minimal fixes
-argument-hint: "[additional instructions, including an optional support cutoff]"
+description: Test the current pi installation, record compatibility evidence, and fix concrete breakage
+argument-hint: "[additional instructions, including an optional minimum-version change]"
 ---
 
 Review pi-agentlet compatibility with the installed pi host running this session.
@@ -10,7 +10,7 @@ $ARGUMENTS
 
 This invocation authorizes narrowly scoped repository changes needed for
 compatibility: implementation, regression tests, validation scripts, and
-supported-version documentation. It does not authorize product redesign,
+compatibility documentation. It does not authorize product redesign,
 software installation, global configuration changes, commits, or publishing.
 
 Do not create a Git commit after applying adjustments. Leave all changes
@@ -30,19 +30,17 @@ installation found on PATH or the latest publicly available release.
 If the active installation cannot be identified reliably, report the blocker
 and ask for clarification rather than guessing.
 
-Identify available local toolchains and distinguish declared support windows
-from releases actually tested. Do not install or update software implicitly.
+Identify available local toolchains and the latest stable release listed by
+upstream. Report it separately if it differs from the installed target; do not
+install or update software implicitly. The latest published version, the version
+under test, and the most recent validated version may all differ.
 
-Preserve existing support unless the additional instructions explicitly request
-a cutoff. If a cutoff is requested:
-
-- Interpret "below X" as removing versions strictly lower than X.
-- Trim existing support windows; do not fill unsupported gaps or automatically
-  support every version at or above X.
-- Treat the requested removal as authorized, without asking for it again.
-- Update runtime gates, version-dependent branches, tests, smoke profiles, and
-  documentation consistently.
-- Clarify ambiguous instructions or a cutoff that excludes the target host.
+Preserve the existing minimum stable version and prerelease policy unless the
+user explicitly requests a change. Interpret "below X" as strictly lower than X;
+clarify ambiguous requests or a requested minimum that excludes the target.
+Keep the implementation, tests, and docs consistent if the minimum changes.
+Never use the latest tested version as an upper bound in the extension,
+validation scripts, or package metadata.
 
 ## 2. Review upstream changes
 
@@ -74,7 +72,7 @@ Summarize concrete findings and intended changes before editing.
 Proceed with compatibility fixes that preserve the approved product contract.
 
 Ask for approval if an upstream blocker requires changing that contract,
-expanding product scope, or removing support not covered by the requested cutoff.
+expanding product scope, or raising the minimum version without an explicit request.
 
 Preserve bounded blocking delegation, independent sessions, final-only results,
 privacy, explicit incompatibility failures, and cleanup guarantees.
@@ -86,8 +84,9 @@ technically disable subagents in children.
 Add regression tests for discovered incompatibilities. Adapt smoke fixtures when
 necessary without weakening assertions or skipping failing behavior.
 
-Inspect version-dependent branches throughout implementation, tests, and smoke
-scripts. Updating a version gate is not itself a compatibility fix or proof.
+Fix concrete API or behavior incompatibilities, not version numbers. Check that
+implementation, tests, and smoke scripts do not block stable releases solely
+because they are newer than the latest tested release.
 
 ## 4. Validate
 
@@ -106,33 +105,27 @@ Use isolated configuration, deterministic offline providers, and local fixtures.
 Do not load normal user resources, contact remote MCP services, or invoke paid
 providers.
 
-If the target is initially rejected, a provisional repository gate change may
-be needed to run the smoke. Do not leave the target declared supported when
-required validation fails or is blocked.
-
-Revalidate available representative hosts from retained support windows when
-shared integration changes could affect them. Report unavailable hosts as gaps,
-not as tested releases.
+Revalidate previously tested local hosts when shared integration changes could
+affect them. Report unavailable hosts as gaps, not as tested releases.
 
 When TUI integration changes, validate using an isolated offline PTY setup if
 available; otherwise mark interactive validation as pending. Headless smoke
 does not establish interactive compatibility.
 
 Inspect the final diff for weakened assertions, unrelated changes, sensitive
-output, and inconsistent support declarations.
+output, and inconsistent compatibility claims.
 
 ## 5. Maintain evidence and report
 
 Keep implementation, tests, README.md, compatibility notes, architecture, and
 other affected contracts consistent. Preserve "*" host peer dependencies.
 
-Choose conservative support boundaries. Separate exact tested releases from
-broader reviewed windows. Do not automatically admit future minor/major
-releases or prereleases.
-
-Record exact versions, entry points, commands, outcomes, and limitations.
-If required validation is incomplete, report "not yet validated" instead of
-declaring support.
+Update the most recent tested version in README.md and docs/compatibility.md
+only when a newer stable target passes the required real-host checks. Record
+exact versions, entry points, commands, outcomes, and limitations. Do not imply
+that intervening releases were all tested. If validation fails or is incomplete,
+record the failure or gap and leave the latest successful version unchanged.
+Do not add a version ceiling in response to a failed or blocked check.
 
 Return a concise report in Portuguese with:
 
@@ -141,7 +134,7 @@ Return a concise report in Portuguese with:
 3. Relevant upstream changes and evidence.
 4. Changed files and rationale.
 5. Validation matrix and coverage gaps.
-6. Previous and resulting support ranges, including any requested cutoff.
+6. Latest published stable version and most recent successfully tested version, plus any explicitly requested minimum-version change.
 7. Remaining risks or approvals needed.
 
 Do not claim successful checks that were not run or universal compatibility.

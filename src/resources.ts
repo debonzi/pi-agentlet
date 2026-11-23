@@ -6,11 +6,7 @@ import type { Args, BuildSystemPromptOptions, ExtensionAPI, ExtensionContext } f
 import type { Expectation, Invocation } from "./types.ts";
 
 export const GUARD_PATH = fileURLToPath(new URL("./verify-child.ts", import.meta.url));
-export const SUPPORTED_PI_RANGE = ">=1.5.0 <1.7.0";
-const SUPPORTED_PI_WINDOWS = [
-  // Explicit support policy admits stable 1.5.x and 1.6.x, including unvalidated patches.
-  [[1, 5, 0], [1, 7, 0]],
-] as const;
+const MINIMUM_PI_VERSION = [1, 5, 0] as const;
 
 type VersionTuple = readonly [number, number, number];
 
@@ -27,8 +23,7 @@ export function supportsPiVersion(version: string): boolean {
   if (!match) return false;
   const parsed: VersionTuple = [Number(match[1]), Number(match[2]), Number(match[3])];
   if (!parsed.every(Number.isSafeInteger)) return false;
-  return SUPPORTED_PI_WINDOWS.some(([minimum, maximum]) =>
-    compareVersions(parsed, minimum) >= 0 && compareVersions(parsed, maximum) < 0);
+  return compareVersions(parsed, MINIMUM_PI_VERSION) >= 0;
 }
 
 export function digest(value: unknown): string {
@@ -57,7 +52,7 @@ export function resourceHash(options: BuildSystemPromptOptions): string {
 }
 
 export function expectation(pi: Pick<ExtensionAPI, "getThinkingLevel">, ctx: ExtensionContext, options: BuildSystemPromptOptions, version: string): Expectation {
-  if (!supportsPiVersion(version)) throw new Error(`subagents supports pi ${SUPPORTED_PI_RANGE}; installed version is ${version}. Review resource/lifecycle APIs before expanding compatibility.`);
+  if (!supportsPiVersion(version)) throw new Error(`subagents requires stable pi ${MINIMUM_PI_VERSION.join(".")} or newer; installed version is ${version}.`);
   if (!ctx.model) throw new Error("subagents requires an explicitly resolved parent model.");
   if (ctx.model.api === "pi-virtual") throw new Error("subagents does not support virtual models. Select a physical model; routing policy and state cannot be reconstructed.");
   if (options.forceSystemPrompt !== undefined) throw new Error("subagents cannot reconstruct an in-memory forced system prompt. Put reusable instructions in normal resources.");

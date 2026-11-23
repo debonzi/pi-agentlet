@@ -24,11 +24,11 @@ It is a good fit for independent code reviews, test-coverage checks, and focused
 
 ### Requirements
 
-- **pi `>=1.5.0 <1.7.0` (stable 1.5.x and 1.6.x)** from `@earendil-works/pi-coding-agent`, installed through Node/npm.
+- **Stable pi 1.5.0 or newer** from `@earendil-works/pi-coding-agent`, installed through Node/npm.
 - **Node.js 24+** and **Linux**.
 - A working pi model/provider configuration.
 
-The support window is `>=1.5.0 <1.7.0`, including build metadata but excluding prereleases. Support below 1.5.0 remains removed. Exact releases **1.5.2 and 1.6.0** have been integration-tested on both shipped CLI layouts; 1.6.0 also passed isolated regular/fullscreen PTY checks. Version 1.7.0 and newer remain excluded. Other 1.6.x patches are admitted by explicit policy, not claimed reviewed or tested. The release notes for 1.5.0 and 1.5.1 were reviewed, but those hosts were unavailable for integration testing; other 1.5.x patches are admitted by policy, not claimed tested. Admission is not a guarantee of compatibility with untested releases. Select a physical model; virtual models and their routing state are not supported. Native binary installations are not integration-tested. See [compatibility notes](docs/compatibility.md) for SDK, wrapper, and extension limitations.
+**Latest integration-tested pi release: 1.6.0.** Exact releases 1.5.2 and 1.6.0 passed offline headless and isolated regular/fullscreen PTY checks on both shipped CLI layouts. Newer stable releases can run without a version ceiling, but compatibility with untested releases is not guaranteed. Build metadata is accepted; prereleases are not. Select a physical model; virtual models and their routing state are not supported. Native binary installations are not integration-tested. See [compatibility notes](docs/compatibility.md) for evidence and limitations.
 
 ### From GitHub
 
