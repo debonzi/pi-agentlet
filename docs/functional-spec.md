@@ -71,7 +71,7 @@ Every child receives an automatic instruction to work directly, not use `subagen
 
 ## Independent context and configuration
 
-By explicit request, the host version gate admits only `>=1.5.0 <1.6.0`: stable 1.5.x releases, including build metadata and unvalidated patches. This trims the previous `>=1.2.0 <2.0.0` window, removing support strictly below 1.5.0 and at or above 1.6.0 without filling gaps. Exact release 1.5.2 has been integration-tested; the release notes for 1.5.0 and 1.5.1 were reviewed, but those hosts were unavailable for integration testing. Admission does not guarantee compatibility with untested releases. Versions outside the window and all prereleases are rejected before child startup.
+The host version gate admits `>=1.5.0 <1.7.0`: stable 1.5.x and 1.6.x releases, including build metadata and unvalidated patches, by explicit policy. The lower boundary remains 1.5.0; no additional cutoff is applied. The upper boundary is exclusive: 1.7.0 and newer remain rejected. Admission of untested patches is not evidence of review or integration validation. Exact releases 1.5.2 and 1.6.0 have been integration-tested; the release notes for 1.5.0 and 1.5.1 were reviewed, but those hosts were unavailable for integration testing. Admission does not guarantee compatibility with untested releases. Versions outside the window and all prereleases are rejected before child startup.
 
 Children start new ephemeral conversations. Never copy or fork parent history, replay parent messages/attachments, or copy the parent's complete system prompt to simulate resource inheritance.
 

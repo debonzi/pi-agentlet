@@ -113,7 +113,7 @@ export default function offlineProvider(pi: ExtensionAPI): void {
         content = [{ type: "toolCall", id: "fixture-delegate", name: "subagents", arguments: {
           tasks: (profile === "cancel" ? Array.from({ length: 6 }, (_, i) => `Waiting task ${i}`) : ["Review bugs", "Review tests", "Review errors"])
             .map((title, i) => ({ title, task: profile === "timeout" && i === 0 ? "WAIT_FOR_TIMEOUT. Do not modify files." : "Analyze the supplied fixture only. Do not modify files.",
-              output: "State whether there are findings.", ...(profile === "timeout" && i === 0 ? { timeoutSeconds: 1 } : {}) })),
+              output: "State whether there are findings.", ...(profile === "timeout" && i === 0 ? { timeoutSeconds: 5 } : {}) })),
         } }];
       }
       const message: AssistantMessage = {

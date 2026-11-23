@@ -86,6 +86,21 @@ test("billed-cost provenance survives finalized and ancillary usage without dupl
   t.accept({ type: "entry_appended", entry: { type: "compaction", usage } });
   assert.equal(t.usage?.cost.totalFromProvider, false);
 });
+test("startup entry events retain usage without becoming a final answer (pi 1.6 JSON startup)", () => {
+  const t = new Transcript(() => {});
+  t.accept({ type: "session", version: 3 });
+  t.accept({ type: "entry_appended", entry: { type: "custom", data: "PRIVATE_STARTUP" } });
+  t.accept({ type: "entry_appended", entry: { type: "usage", kind: "startup", usage } });
+  assert.equal(t.answer, undefined);
+  assert.equal(t.settled, false);
+  t.accept({ type: "agent_start" });
+  t.accept({ type: "message_end", message: assistant("Final") });
+  t.accept({ type: "agent_end", willRetry: false });
+  t.accept({ type: "agent_settled", aborted: false });
+  assert.equal(t.answer, "Final");
+  assert.equal(t.usage?.totalTokens, 6);
+  assert.equal(t.settled, true);
+});
 test("settlement must follow agent_end, must not be aborted, and resets across continuations", () => {
   const t = new Transcript(() => {});
   t.accept({ type: "message_end", message: assistant("valid") });

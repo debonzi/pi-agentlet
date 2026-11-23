@@ -69,36 +69,36 @@ test("verification detects non-reproducible configuration without any fallback",
   assert.match(mismatch({ ...expected, trusted: false }, pi, ctx, options)!, /trust/);
   assert.equal("toolsHash" in expected, false);
   assert.match(mismatch({ ...expected, resourcesHash: "changed" }, pi, ctx, options)!, /skills/);
-  assert.throws(() => expectation(pi, ctx, options, "0.1.0"), /supports pi >=1\.5\.0 <1\.6\.0/);
+  assert.throws(() => expectation(pi, ctx, options, "0.1.0"), /supports pi >=1\.5\.0 <1\.7\.0/);
   assert.throws(() => expectation(pi, { ...ctx, model: undefined }, options, SUPPORTED_VERSION), /model/);
   assert.throws(() => expectation(pi, ctx, { ...options, forceSystemPrompt: "private parent state" }, SUPPORTED_VERSION), /in-memory/);
   assert.throws(() => buildInvocation({ parsed: parsed({ apiKey: "secret" }), expected, agentDir: "/config", startupCwd: "/launch", exec: { command: "/pi", prefix: [] } }), /--api-key/);
 });
-test("pi compatibility admits only stable >=1.5.0 <1.6.0, including unvalidated patches", () => {
+test("pi compatibility admits stable >=1.5.0 <1.7.0, including unvalidated patches", () => {
   const { pi, ctx, options } = host();
-  for (const version of ["1.5.0", "1.5.0+build.1", "1.5.1", "1.5.2", "1.5.2+build.1", "1.5.42", "1.5.999+build.1"]) {
+  for (const version of ["1.5.0", "1.5.0+build.1", "1.5.1", "1.5.2", "1.5.2+build.1", "1.5.42", "1.5.999+build.1", "1.6.0", "1.6.0+build.1", "1.6.1", "1.6.1+build.1", "1.6.999"]) {
     assert.equal(supportsPiVersion(version), true, version);
     assert.doesNotThrow(() => expectation(pi, ctx, options, version));
   }
   for (const version of ["0.85.999", "0.86.0", "0.86.2", "0.87.0", "0.87.999", "0.87.0+build.1",
     "0.88.0", "0.98.999", "0.99.0", "0.99.1", "0.99.999", "0.99.1+build.1", "0.100.0",
     "1.0.0", "1.0.1", "1.0.2", "1.0.2+build.1", "1.0.3", "1.0.4", "1.0.999", "1.1.0", "1.1.999",
-    "1.2.0", "1.2.999", "1.3.0", "1.3.999", "1.4.0", "1.4.999+build.1", "1.6.0", "1.6.0+build.1", "1.99.999",
+    "1.2.0", "1.2.999", "1.3.0", "1.3.999", "1.4.0", "1.4.999+build.1", "1.7.0", "1.7.0+build.1", "1.7.1", "1.8.0", "1.99.999",
     "2.0.0", "2.0.0+build.1", "2.0.1", "3.0.0", "1.5.0-rc.1", "1.5.1-rc.1", "1.5.2-rc.1+build.1",
-    "1.6.0-rc.1", "1.05.0", "1.5.02", "1.5.9007199254740992", "invalid"]) {
+    "1.6.0-rc.1", "1.6.1-rc.1+build.1", "1.7.0-rc.1", "1.05.0", "1.5.02", "1.5.9007199254740992", "invalid"]) {
     assert.equal(supportsPiVersion(version), false, version);
   }
 });
-test("1.5.x admission preserves non-tool verification and enforces the requested cutoff", () => {
+test("retained and new releases preserve non-tool verification and conservative boundaries", () => {
   const { pi, ctx, options } = host();
-  for (const version of ["1.5.0", "1.5.0+build.1", "1.5.1", "1.5.2", "1.5.999"]) {
+  for (const version of ["1.5.0", "1.5.0+build.1", "1.5.1", "1.5.2", "1.5.999", "1.6.0", "1.6.0+build.1", "1.6.1", "1.6.999+build.1"]) {
     assert.equal(supportsPiVersion(version), true, version);
     const expected = expectation(pi, ctx, options, version);
     assert.equal(expected.version, version);
     assert.equal(mismatch(expected, pi, ctx, options), undefined);
     assert.match(mismatch({ ...expected, thinking: "off" }, pi, ctx, options)!, /thinking/);
   }
-  for (const version of ["1.4.999", "1.4.0+build.1", "1.5.0-rc.1", "1.5.2-rc.1+build.1", "1.6.0", "1.6.1", "2.0.0"]) {
+  for (const version of ["1.4.999", "1.4.0+build.1", "1.5.0-rc.1", "1.5.2-rc.1+build.1", "1.6.0-rc.1", "1.6.1-rc.1", "1.7.0", "2.0.0"]) {
     assert.equal(supportsPiVersion(version), false, version);
     assert.throws(() => expectation(pi, ctx, options, version), /supports pi/);
   }

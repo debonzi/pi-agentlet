@@ -2,7 +2,7 @@
 
 This document records host-specific evidence and limitations for the [functional specification](functional-spec.md) and [architecture decisions](architecture.md). See the [README](../README.md) for usage and the [development guide](development.md) for verification commands.
 
-Allowed host range: `@earendil-works/pi-coding-agent` **>=1.5.0 <1.6.0** (stable **1.5.x**, including build metadata); Node **24 or newer** on Linux. The explicit request removes support strictly below 1.5.0 and sets the upper boundary at 1.6.0, trimming the previous `>=1.2.0 <2.0.0` window without filling gaps. All prereleases are rejected. **Exact release 1.5.2 has been reviewed and integration-tested**, including both shipped CLI layouts and isolated regular/fullscreen PTYs. Release notes for 1.5.0 and 1.5.1 were reviewed, but those hosts were unavailable for integration testing. Other 1.5.x patches are admitted by policy, not claimed reviewed or tested. Earlier validation below is historical evidence only, not retained support. Local installation paths are evidence, not production defaults.
+Allowed host range: `@earendil-works/pi-coding-agent` **>=1.5.0 <1.7.0** (stable **1.5.x and 1.6.x**, including build metadata); Node **24 or newer** on Linux. Existing 1.5.x support is retained without a new cutoff; prereleases and future minor releases are rejected. **Exact releases 1.5.2 and 1.6.0 have been reviewed and integration-tested**, including both shipped CLI layouts and isolated regular/fullscreen PTYs. Release notes for 1.5.0 and 1.5.1 were reviewed previously, but those hosts remain unavailable. Other 1.5.x and 1.6.x patches are admitted by explicit policy, not claimed reviewed or tested. The clarified upper boundary is exclusive: **1.7.0 and newer remain rejected**. Local installation paths are evidence, not production defaults.
 
 ## Public APIs used
 
@@ -12,6 +12,60 @@ Allowed host range: `@earendil-works/pi-coding-agent` **>=1.5.0 <1.6.0** (stable
 - `onUpdate`, `renderCall`, `renderResult`, theme colors, and TUI width helpers implement the tool-local UI. `ToolRenderContext.toolCallId` associates a row with its live execution; `invalidate()` rebuilds the row and requests rendering for UI-only animation. `usage` on the final tool result is supported.
 - The supported `pi-tui` Loader uses ten Braille frames (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`) at 80 ms. Tool renderers do not receive its required TUI instance, so the extension matches these defaults using a call-owned clock and public row invalidation rather than importing host internals. Custom global working-indicator overrides are not mirrored. The host does not dispose tool slot components on replacement; execution/lifecycle hooks own animation cleanup. In regular-screen mode, supported pi versions clear the screen and scrollback when the first changed line is above the tracked viewport. Keeping all live progress in a height-bounded final tail avoids that path when an expanded active block exceeds terminal height. The tail budget uses `process.stdout.rows` because `ToolRenderContext` does not expose available rows or row visibility; the extension cannot guarantee visibility if unrelated later UI pushes the entire block off-screen.
 - `session_shutdown` covers quit, reload, new/resume, and fork/clone teardown on 1.5.2. `session_start` recreates instance state. Public `agent_settled.aborted` is required to distinguish normal final completion from cancellation after an otherwise valid assistant answer.
+
+## 1.6.0 review (2026-11-23 UTC)
+
+The active extension's imported `VERSION` rejected the initial read-only delegation with `installed version is 1.6.0`; no child started. Parent PID 54393 runs `/home/debonzi/.nvm/versions/node/v24.16.0/bin/node`, with rewritten title `pi`. Its inherited `PI_MANAGED_INSTALL_ROOT`, the managed launcher `/home/debonzi/.local/bin/pi` → `/home/debonzi/.pi/agent/bin/pi`, and `current-version` = 1.6.0 (modified before parent startup) identify `/home/debonzi/.pi/agent/install/releases/1.6.0/node_modules/@earendil-works/pi-coding-agent`. The release's `.bin/pi` resolves to `dist/bundle/cli.js`; `dist/cli.js` is also shipped. This is not a PATH/latest substitution. The initial working tree was clean; only 1.5.2 and 1.6.0 hosts were available.
+
+Official evidence: `gh-axi release view v1.6.0 -R earendil-works/pi --full` and `gh-axi release list -R earendil-works/pi --limit 6` show 1.5.2 → 1.6.0 with no intervening published release. `gh-axi release view v1.7.0 -R earendil-works/pi --json tagName,body` returned `NOT_FOUND`. See [versioned release notes](https://github.com/earendil-works/pi/releases/tag/v1.6.0). The user subsequently clarified that 1.7.0 is the exclusive upper boundary, not a requested target release; its unavailability does not block that policy.
+
+Before editing integration, the complete shipped README and extension, TUI, JSON, CLI/CLI-integration, SDK, package, settings/configuration/environment, provider/custom-provider, model/model-configuration, MCP, virtual-model, codemode, security, skill, prompt-template, session/session-format/message-type and compaction guides were read. Public tool/render/lifecycle/resource declarations and SDK extension/MCP examples were inspected, along with the subagent example's integration surface. Installed implementations were compared to the retained 1.5.2 baseline.
+
+| 1.6.0 evidence | Repository impact |
+|---|---|
+| `pi-tui/dist/tui.d.ts`: `Component.render()` returns `readonly string[]`; containers cache child arrays by identity | `src/ui.ts` constructs new output arrays and does not mutate host render output. No renderer shim required; both layouts pass regular/fullscreen PTYs. Loader frames/cadence are unchanged. |
+| `dist/modes/print-mode.js` subscribes before `bindExtensions`, preserving JSON events from `session_start`; JSON transformation and pi-ai Usage types unchanged | `protocol.ts` already accepts startup entries, accounts for ancillary usage, and still requires final non-aborted settlement. New regression covers startup custom/usage entries before `agent_start`, with no private startup content becoming an answer. |
+| `pi-agent-core/dist/agent-loop.js` finalizes every aborted batch call, checking abort before preparation/hooks | Existing settlement checks and runner cleanup remain necessary. Real shutdown/cancel, settled-abort and PTY Escape checks pass. No looser final-answer extraction was adopted. |
+| Extension runner routes event-bus errors safely; session runtime adds deduplicated diagnostics; reload with empty SDK bindings now restarts extensions | CLI/lifecycle hooks need no replacement. Ordinary error/result handling, reload/new/quit and cleanup pass. Inline SDK reconstruction remains unsupported. |
+| Resource loader/package manager captures install output and makes git non-interactive; CLI parser changes only credential help text | Keep existing `--offline`, `PI_OFFLINE=1`, stdin tasks, ephemeral sessions and explicit resource/tool/trust replay. No installer, approval or resource fallback added. Cached remote-package refresh remains source-reviewed rather than live-tested. |
+| Model defaults become GPT-6.2 Sol; Qwen endpoints/credentials, Anthropic threads and provider transports change | Explicit physical provider/model/effective thinking pins remain authoritative. Offline collision/literal-ID/provider-slash profiles pass. Actual transport/OAuth, new model capabilities and HTTP MCP are not validated. |
+| MCP summary helper extracted; pending restored tools survive unrelated deactivation | No catalog comparison/readiness barrier added; local delayed MCP, `--no-mcp`, tool deltas and differing child tools pass. Resume/fork restoration itself is not certified. |
+
+The concrete target incompatibility was the gate: the initial bundled smoke failed at `Unsupported pi version: 1.6.0` before host/provider work. The initial production adjustment added exactly 1.6.0 while preserving 1.5.x. After the user's clarification, the gate admits the requested stable `>=1.5.0 <1.7.0` window, including unvalidated patches. Regression tests check 1.6.x patch admission and rejection of 1.7.0, newer releases and prereleases. Both smoke scripts consume this shared gate; all 17 headless profiles remain unconditional, with no skipped behavior or new orchestration. Host peers remain `"*"`.
+
+### Validation and commands
+
+Existing toolchains: Node 24.16.0, TypeScript 5.9.3 at `/home/debonzi/devel/repos/opcode/site/node_modules/typescript/lib/typescript.js`, and Python 3.13.0. No installation or update was performed.
+
+```sh
+export PI_AGENTLET_TYPESCRIPT=/home/debonzi/devel/repos/opcode/site/node_modules/typescript/lib/typescript.js
+export PI_AGENTLET_HOST=/home/debonzi/.pi/agent/install/releases/1.6.0/node_modules/@earendil-works/pi-coding-agent
+npm test
+npm run typecheck
+npm run check
+# Repeated for 1.6.0 and retained 1.5.2, both entry points:
+PI_AGENTLET_CLI="$PI_AGENTLET_HOST/dist/bundle/cli.js" node scripts/smoke.mjs
+PI_AGENTLET_CLI="$PI_AGENTLET_HOST/dist/cli.js" node scripts/smoke.mjs
+# Target interactive checks, both entry points:
+PI_AGENTLET_CLI="$PI_AGENTLET_HOST/dist/bundle/cli.js" python3 scripts/smoke-pty.py
+PI_AGENTLET_CLI="$PI_AGENTLET_HOST/dist/cli.js" python3 scripts/smoke-pty.py
+# Retained-host declarations:
+PI_AGENTLET_HOST=/home/debonzi/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent npm run typecheck
+```
+
+| Validation | Result |
+|---|---|
+| `npm test`, repeated by `npm run check` | 86 passed, none skipped. |
+| Target `npm run typecheck`, `npm run check`; retained 1.5.2 typecheck | Passed. |
+| Final headless matrix: 1.6.0 and 1.5.2 × bundled/unbundled | All 17 profiles passed in each combination (68 profile runs). |
+| Target PTY matrix: both layouts × regular/fullscreen × basic/cancel | All eight combinations passed, including expansion, aggregate resize, Escape, settlement, reload/new/quit and process cleanup. No UI implementation or PTY assertions changed. |
+| 1.5.0/1.5.1 and other admitted patches | Not installed; **not yet validated**. Retained 1.5.2 PTYs were not rerun in this review; earlier results below remain historical evidence. |
+
+After correcting the range to `>=1.5.0 <1.7.0`, `npm test` (86 passed, none skipped), target `npm run typecheck`, `npm run check`, and all 17 headless profiles on both releases and both CLI layouts were rerun successfully (68 additional profile runs). `git diff --check` passed. PTYs were not rerun for this gate-only correction; the eight target results above are from the preceding review.
+
+An initial unbundled timeout profile failed its unchanged four-process assertion (three registrations): the one-second execution budget could expire during cold startup before the offline extension loaded. The fixture budget is now five seconds, still much shorter than the default. It continues to require one timed-out child, two completed siblings, four fixture registrations and no surviving processes. The complete final headless matrix passed after this adjustment; the earlier failure is not counted as a pass.
+
+**Verdict: compatible after the gate adjustment for exact 1.6.0, within these CLI/offline boundaries.** Previous range `>=1.5.0 <1.6.0`; resulting range **`>=1.5.0 <1.7.0`**, following the user's clarification of the exclusive upper bound. The interim exact-1.6.0 gate was corrected. Exact tested releases remain 1.5.2 and 1.6.0; broader patch admission is policy, not universal compatibility evidence. No additional cutoff or product redesign was applied. Real providers (including this session's Codex transport), OAuth persistence under forced kill, HTTP MCP, classifier/image services, cached package refresh, native binaries, Bun, other operating systems, resume/fork UI, mouse/scrollback and real-terminal behavior remain not yet validated. All checks used isolated temporary HOME/config/project resources, deterministic providers and local stdio MCP only. No normal user resources, remote private services or paid providers were loaded. No commit, publication, live reload or global configuration change was performed; this session retains its already-loaded gate until reload/restart.
 
 ## 1.5.2 review: changes mapped to integration
 
@@ -128,7 +182,7 @@ These boundaries do not justify disabling extensions, downgrading models, copyin
 
 `npm test` exercises fixture subprocesses and host mocks, including tool APIs that throw if configuration capture or verification accesses them. It checks inherited CLI tool options without synthesized restrictions and accepts absent, differing, or SDK-origin tool catalogs while retaining non-tool incompatibility failures.
 
-### Current target and commands (2026-11-16 UTC)
+### Previous target and commands (2026-11-16 UTC)
 
 **Verdict: compatible after the usage-provenance and forced-prompt verification fixes, within the documented CLI/offline boundaries.** The active parent PID 20234 runs `/home/debonzi/.nvm/versions/node/v24.16.0/bin/node`; its rewritten process title is `pi`. Its inherited `PI_MANAGED_INSTALL_ROOT`, managed launcher's release selection, `current-version` = 1.5.2 (written before process startup), release manifest and `.bin/pi` symlink identify this installation, rather than a PATH/latest-release substitution. The installation's exported `VERSION` was independently read as 1.5.2; successful delegation through the active extension also requires exact parent/child version equality.
 
